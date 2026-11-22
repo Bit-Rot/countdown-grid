@@ -1,0 +1,1100 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0}[hidden]{display:none!important}</style>
+<title>Countdown Grid</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Inter:wght@400;500;600&display=swap">
+<style>
+/* Layout: score meters on top; the enemy's 3x4 grid above the front line, your 3x4 grid below it, so opposite cells share a label; hand under your grid; inspector and log in a side column. */
+:root {
+  --bg: #e9edf3; --surface: #ffffff; --surface-2: #f2f5f9; --ink: #131822; --muted: #566074; --line: #cdd5e1;
+  --you: #1f5ad0; --you-soft: #dde8fc; --you-ink: #123b8f; --you-wash: rgba(31, 90, 208, .09); --on-you: #ffffff;
+  --foe: #c53a2f; --foe-soft: #fbe0dc; --foe-ink: #8e2118; --foe-wash: rgba(197, 58, 47, .09);
+  --timer: #b36b00; --on-timer: #ffffff; --good: #1b8a4b; --bad: #c53a2f;
+  --f-display: 'Barlow Condensed', 'Arial Narrow', system-ui, sans-serif;
+  --f-body: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0e1219; --surface: #161c27; --surface-2: #1d2533; --ink: #e7ebf2; --muted: #9aa5b8; --line: #2b3547;
+    --you: #6c9bff; --you-soft: #1a2b52; --you-ink: #c3d6ff; --you-wash: rgba(108, 155, 255, .12); --on-you: #0b1220;
+    --foe: #ff6f63; --foe-soft: #47201d; --foe-ink: #ffc9c3; --foe-wash: rgba(255, 111, 99, .12);
+    --timer: #f2b24c; --on-timer: #1a1203; --good: #4fd18b; --bad: #ff6f63;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0e1219; --surface: #161c27; --surface-2: #1d2533; --ink: #e7ebf2; --muted: #9aa5b8; --line: #2b3547;
+  --you: #6c9bff; --you-soft: #1a2b52; --you-ink: #c3d6ff; --you-wash: rgba(108, 155, 255, .12); --on-you: #0b1220;
+  --foe: #ff6f63; --foe-soft: #47201d; --foe-ink: #ffc9c3; --foe-wash: rgba(255, 111, 99, .12);
+  --timer: #f2b24c; --on-timer: #1a1203; --good: #4fd18b; --bad: #ff6f63;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body { background: var(--bg); color: var(--ink); font-family: var(--f-body); font-size: 15px; line-height: 1.4; }
+button { font: inherit; color: inherit; }
+button:focus-visible, select:focus-visible, input:focus-visible, summary:focus-visible { outline: 3px solid var(--ink); outline-offset: 2px; }
+
+.app { max-width: 1120px; margin: 0 auto; padding-block: 20px 48px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+.top { display: flex; flex-wrap: wrap; gap: 12px 24px; align-items: flex-end; justify-content: space-between; margin-bottom: 14px; }
+.top h1 { margin: 0; font: 700 36px/1 var(--f-display); letter-spacing: .05em; text-transform: uppercase; }
+.top .sub { margin: 4px 0 0; color: var(--muted); font-size: 13px; max-width: 52ch; }
+.ctrls { display: flex; flex-wrap: wrap; gap: 10px 14px; align-items: center; font-size: 13px; color: var(--muted); }
+.ctrls label { display: inline-flex; gap: 6px; align-items: center; }
+select { font: inherit; color: var(--ink); background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 6px 8px; }
+
+.btn { border: 1px solid var(--line); background: var(--surface); border-radius: 9px; padding: 9px 14px; font-weight: 600; cursor: pointer; }
+.btn:disabled { opacity: .45; cursor: not-allowed; }
+.btn.primary { background: var(--you); border-color: var(--you); color: var(--on-you); }
+.btn.ghost:hover:not(:disabled) { background: var(--surface-2); }
+
+.scores { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; display: grid; gap: 10px; }
+.srow { display: grid; grid-template-columns: 56px minmax(0, 1fr) auto; gap: 12px; align-items: center; }
+.slabel { font: 600 14px var(--f-display); letter-spacing: .1em; text-transform: uppercase; }
+.srow.you .slabel { color: var(--you); } .srow.foe .slabel { color: var(--foe); }
+.bar { height: 14px; border-radius: 999px; background: var(--surface-2); border: 1px solid var(--line); overflow: hidden; }
+.bar i { display: block; height: 100%; width: 0; transition: width .5s ease; }
+.srow.you .bar i { background: var(--you); } .srow.foe .bar i { background: var(--foe); }
+.snum { min-width: 150px; text-align: right; font-variant-numeric: tabular-nums; }
+.snum b { font: 700 28px/1 var(--f-display); }
+.snum span { color: var(--muted); font-size: 13px; margin-left: 2px; }
+.snum em { font-style: normal; font-weight: 600; font-size: 13px; margin-left: 8px; color: var(--good); }
+.snum em.proj { color: var(--muted); font-weight: 500; }
+
+.stage { display: grid; gap: 20px; margin-top: 16px; grid-template-columns: minmax(0, 1fr); align-items: start; }
+@media (min-width: 920px) { .stage { grid-template-columns: minmax(0, 1fr) 320px; } }
+.play { min-width: 0; max-width: 580px; }
+
+.intent { min-height: 58px; display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; }
+.intent .lead { font-size: 13px; color: var(--muted); flex-basis: 100%; }
+.intent .lead b { color: var(--foe); font-weight: 600; }
+.chip { display: inline-flex; gap: 7px; align-items: center; border: 1.5px dashed var(--foe); background: var(--foe-wash); color: var(--foe-ink); border-radius: 999px; padding: 4px 11px 4px 5px; font-size: 13px; font-weight: 500; cursor: pointer; }
+.chip b { display: grid; place-items: center; width: 20px; height: 20px; border-radius: 50%; background: var(--foe); color: var(--surface); font: 700 12px var(--f-display); }
+.chip span { opacity: .8; }
+.chip.done { border-style: solid; opacity: .6; }
+.verdict { width: 100%; display: flex; flex-wrap: wrap; gap: 12px; justify-content: space-between; align-items: center; border-radius: 12px; padding: 12px 16px; border: 1.5px solid var(--line); background: var(--surface); }
+.verdict strong { display: block; font: 700 28px/1.1 var(--f-display); letter-spacing: .04em; text-transform: uppercase; }
+.verdict span { color: var(--muted); font-size: 13px; }
+.verdict.you { border-color: var(--you); background: var(--you-wash); } .verdict.foe { border-color: var(--foe); background: var(--foe-wash); }
+
+.gl { display: flex; flex-wrap: wrap; gap: 2px 10px; align-items: baseline; font-size: 12px; color: var(--muted); margin: 6px 0; }
+.gl b { font: 700 15px var(--f-display); letter-spacing: .1em; text-transform: uppercase; }
+.grid.foe .gl b { color: var(--foe); } .grid.you .gl b { color: var(--you); }
+.frontline { display: flex; align-items: center; gap: 10px; margin: 10px 0; font: 600 11px var(--f-display); letter-spacing: .16em; text-transform: uppercase; color: var(--muted); }
+.frontline::before, .frontline::after { content: ""; flex: 1; border-top: 2px dotted var(--line); }
+
+.board { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+.cell { position: relative; aspect-ratio: 4 / 3; min-width: 0; padding: 0; text-align: left; cursor: pointer; overflow: hidden; border-radius: 10px; border: 1.5px solid var(--line); background: var(--surface-2); }
+.cell.empty { border-style: dashed; background: transparent; display: grid; place-items: center; }
+.cell .co { font: 600 12px var(--f-display); letter-spacing: .1em; color: var(--muted); }
+.cell.target { border-color: var(--you); border-style: dashed; background: var(--you-wash); }
+.cell.target:hover { background: var(--you-soft); }
+.cell.card, .cell.ghost { display: flex; flex-direction: column; justify-content: space-between; padding: 6px 7px 5px; }
+.cell.you { background: var(--you-soft); border-color: var(--you); color: var(--you-ink); }
+.cell.foe { background: var(--foe-soft); border-color: var(--foe); color: var(--foe-ink); }
+.cell.ghost { border-style: dashed; border-color: var(--foe); background: var(--foe-wash); color: var(--foe-ink); }
+.nm { font-weight: 600; font-size: clamp(10px, 1.5vw, 12.5px); line-height: 1.15; padding-right: 26px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.fx { font-size: 11px; line-height: 1.15; opacity: .85; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.bot { display: flex; justify-content: space-between; align-items: flex-end; gap: 4px; }
+.pw { font: 700 clamp(26px, 4.2vw, 36px)/.95 var(--f-display); font-variant-numeric: tabular-nums; }
+.rt { display: flex; flex-direction: column; align-items: flex-end; gap: 2px; }
+.next { font: 600 10px var(--f-display); letter-spacing: .12em; opacity: .8; }
+.fc { font: 700 12px/1 var(--f-display); letter-spacing: .02em; padding: 3px 6px; border-radius: 999px; background: var(--surface); border: 1.5px solid currentColor; }
+.fc.good { color: var(--good); } .fc.bad { color: var(--bad); } .fc.spawn { color: var(--muted); }
+.cell.empty .fc { position: absolute; bottom: 6px; right: 6px; }
+.tm { position: absolute; top: 5px; right: 5px; width: 24px; height: 24px; border-radius: 50%; display: grid; place-items: center; border: 2px solid var(--timer); background: var(--surface); color: var(--ink); font: 700 14px/1 var(--f-display); }
+.tm.soon { background: var(--timer); color: var(--on-timer); animation: beat 1.4s ease-in-out infinite; }
+@keyframes beat { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.16); } }
+.pop { position: absolute; left: 0; right: 0; top: 34%; text-align: center; font: 700 24px/1 var(--f-display); pointer-events: none; text-shadow: 0 1px 0 var(--surface), 0 0 6px var(--surface); animation: rise .9s ease-out forwards; }
+.pop.buff { color: var(--good); } .pop.hurt, .pop.destroy { color: var(--bad); } .pop.score, .pop.slow { color: var(--timer); } .pop.place { color: var(--muted); }
+@keyframes rise { from { transform: translateY(8px); opacity: 0; } 20% { opacity: 1; } to { transform: translateY(-10px); opacity: 1; } }
+.cell.f-fire { box-shadow: 0 0 0 3px var(--timer), 0 0 18px var(--timer); z-index: 2; }
+.cell.f-buff { box-shadow: 0 0 0 3px var(--good); }
+.cell.f-hurt, .cell.f-destroy { box-shadow: 0 0 0 3px var(--bad); }
+.cell.f-slow, .cell.f-score { box-shadow: 0 0 0 3px var(--timer); }
+.cell.f-place { animation: drop .35s ease-out; }
+@keyframes drop { from { transform: scale(.82); opacity: .2; } to { transform: scale(1); opacity: 1; } }
+.cell.hl-out { outline: 3px dashed var(--timer); outline-offset: -3px; }
+.cell.hl-foe { box-shadow: inset 0 0 0 3px var(--bad); }
+.cell.hl-ally { box-shadow: inset 0 0 0 3px var(--good); }
+.cell.hl-src { box-shadow: 0 0 0 3px var(--ink); z-index: 3; }
+.cell[data-hl]::after { content: attr(data-hl); position: absolute; left: 50%; bottom: 4px; transform: translateX(-50%); font: 700 10px/1 var(--f-display); letter-spacing: .12em; text-transform: uppercase; padding: 2px 5px; border-radius: 999px; background: var(--ink); color: var(--bg); white-space: nowrap; pointer-events: none; }
+.legend { display: flex; flex-wrap: wrap; gap: 4px 14px; margin: 6px 0 0; font-size: 12px; color: var(--muted); }
+.legend span { display: inline-flex; gap: 6px; align-items: center; }
+.legend i { width: 14px; height: 14px; border-radius: 4px; border: 3px solid; }
+.legend .l-out { border-style: dashed; border-color: var(--timer); } .legend .l-foe { border-color: var(--bad); } .legend .l-ally { border-color: var(--good); }
+@media (max-width: 520px) { .cell { aspect-ratio: 1 / .86; } .fx { display: none; } .tm { width: 21px; height: 21px; font-size: 12px; } }
+
+.handbar { margin-top: 18px; }
+.status { display: flex; flex-wrap: wrap; gap: 4px 16px; align-items: baseline; font-size: 13px; color: var(--muted); min-height: 22px; margin-bottom: 8px; }
+.status b { color: var(--ink); font-weight: 600; }
+.pips { letter-spacing: .15em; color: var(--you); font-size: 15px; }
+.tip { flex-basis: 100%; color: var(--ink); }
+.hand { display: grid; grid-template-columns: repeat(auto-fill, minmax(112px, 1fr)); gap: 8px; }
+.hcard { position: relative; text-align: left; cursor: pointer; display: flex; flex-direction: column; gap: 4px; min-height: 132px; padding: 8px; border-radius: 10px; border: 1.5px solid var(--you); background: var(--you-soft); color: var(--you-ink); }
+.hcard.sel { box-shadow: 0 0 0 3px var(--you); transform: translateY(-3px); }
+.hcard.poor { opacity: .55; }
+.hhead { display: flex; gap: 6px; align-items: flex-start; }
+.cost { flex: none; display: grid; place-items: center; width: 24px; height: 24px; border-radius: 50%; background: var(--you); color: var(--on-you); font: 700 15px/1 var(--f-display); }
+.hn { font-weight: 600; font-size: 13px; line-height: 1.15; padding-top: 3px; }
+.hmeta { display: flex; align-items: center; gap: 8px; }
+.hmeta .pw { font-size: 30px; }
+.hmeta .tm { position: static; }
+.hfx { font-size: 11px; line-height: 1.25; opacity: .9; }
+.empty-hand { color: var(--muted); font-size: 13px; padding: 14px 0; grid-column: 1 / -1; }
+.actions { display: flex; gap: 10px; margin-top: 14px; }
+
+.side { display: grid; gap: 14px; min-width: 0; }
+.panel { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; }
+.panel h2 { margin: 0; font: 700 22px/1.1 var(--f-display); letter-spacing: .03em; }
+.ih { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+.tag { font: 600 11px var(--f-display); letter-spacing: .12em; text-transform: uppercase; padding: 2px 7px; border-radius: 999px; border: 1.5px solid; }
+.tag.you { color: var(--you); border-color: var(--you); } .tag.foe { color: var(--foe); border-color: var(--foe); }
+.stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 8px 0; }
+.stats div { background: var(--surface-2); border-radius: 8px; padding: 6px 8px; }
+.stats small { display: block; font-size: 11px; color: var(--muted); }
+.stats b { font: 700 22px/1.1 var(--f-display); font-variant-numeric: tabular-nums; }
+.panel p { margin: 6px 0 0; font-size: 13.5px; }
+.panel p.note { color: var(--muted); }
+.panel p.fcast { font-weight: 600; }
+.rules summary { cursor: pointer; font: 700 18px var(--f-display); letter-spacing: .04em; text-transform: uppercase; }
+.rules ol { margin: 8px 0 0; padding-left: 20px; font-size: 13.5px; display: grid; gap: 6px; }
+.log { max-height: 280px; overflow: auto; font-size: 12.5px; }
+.log h2 { font-size: 16px; text-transform: uppercase; letter-spacing: .06em; margin-bottom: 6px; }
+.ln { display: flex; gap: 8px; padding: 3px 0; border-top: 1px solid var(--line); }
+.ln:first-of-type { border-top: 0; }
+.ln i { flex: none; width: 8px; height: 8px; border-radius: 50%; margin-top: 5px; background: var(--muted); }
+.ln.you i { background: var(--you); } .ln.foe i { background: var(--foe); }
+.ln span { color: var(--muted); font-variant-numeric: tabular-nums; flex: none; min-width: 20px; }
+@media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
+</style>
+
+</head>
+<body>
+<div class="app">
+  <header class="top">
+    <div>
+      <h1>Countdown Grid</h1>
+      <p class="sub">Two grids, one per side. Every card has a timer. First side to 100 points wins, and the enemy shows its plays before you answer.</p>
+    </div>
+    <div class="ctrls">
+      <label for="diff">Enemy
+        <select id="diff">
+          <option value="-1">Easy (&minus;1 energy)</option>
+          <option value="0" selected>Normal</option>
+          <option value="1">Hard (+1 energy)</option>
+        </select>
+      </label>
+      <label for="showfc"><input type="checkbox" id="showfc" checked> Forecast</label>
+      <label for="fast"><input type="checkbox" id="fast"> Fast resolve</label>
+      <button class="btn ghost" id="newgame" type="button">New game</button>
+    </div>
+  </header>
+
+  <section class="scores" id="scores" aria-label="Scores"></section>
+
+  <div class="stage">
+    <div class="play">
+      <div class="intent" id="intent" aria-live="polite"></div>
+      <div class="grid foe">
+        <div class="gl"><b>Enemy grid</b><span>front row at the bottom, nearest you</span></div>
+        <div class="board" id="board-foe" role="group" aria-label="Enemy grid"></div>
+      </div>
+      <div class="frontline">front line</div>
+      <div class="grid you">
+        <div class="board" id="board-you" role="group" aria-label="Your grid"></div>
+        <div class="gl"><b>Your grid</b><span>front row at the top. A1 is opposite A1.</span></div>
+      </div>
+      <div class="legend" aria-label="Highlight legend">
+        <span>Hover a cell, or an empty cell with a card selected:</span>
+        <span><i class="l-out"></i>cells it affects</span>
+        <span><i class="l-foe"></i>enemy cards that affect it</span>
+        <span><i class="l-ally"></i>friendly cards that affect it</span>
+      </div>
+      <div class="handbar">
+        <div class="status" id="status" aria-live="polite"></div>
+        <div class="hand" id="hand" role="group" aria-label="Your hand"></div>
+        <div class="actions">
+          <button class="btn ghost" id="undo" type="button">Undo last play</button>
+          <button class="btn primary" id="end" type="button">End round</button>
+        </div>
+      </div>
+    </div>
+    <aside class="side">
+      <div class="panel" id="inspect" aria-live="polite"></div>
+      <details class="panel rules" open>
+        <summary>How it works</summary>
+        <ol>
+          <li>You and the enemy each have a 3&times;4 grid. Cells share labels, so your A1 is opposite the enemy's A1. Row 1 is each side's front row.</li>
+          <li>Each round you get energy equal to the round number (max 6) and draw a card. Pick a card, then an empty cell on your grid.</li>
+          <li>The enemy's plays are shown first as dashed ghost cards on its grid, and the forecast shows what will happen if you end the round now.</li>
+          <li>Every card has a timer. At the end of each round all timers drop by 1. At 0 the effect fires, then the timer resets. Cards fire in the order they were placed.</li>
+          <li>Attacks hit the opposite card, the opposite row or column, or the strongest card. Targets are picked fresh each tick, after the enemy's plays land and before any effect fires, so they never shift mid-tick. A card at 0 power is destroyed, and a destroyed card never fires.</li>
+          <li>After effects, each side scores the total power on its own grid. First to 100 wins.</li>
+        </ol>
+      </details>
+      <div class="panel log" id="log"></div>
+    </aside>
+  </div>
+</div>
+
+<script>
+/* Countdown Grid v2 - two grids, pure game logic (no DOM).
+   Each side owns a 3x4 grid. Cell index i = row*4 + col, row 0 is the FRONT row (nearest the other side).
+   Cell labels are the same on both grids (A1 = front-left), so a card's "opposite" card is the one at the same label across the table. */
+const Core = (function () {
+  'use strict';
+  const COLS = 4, ROWS = 3, N = COLS * ROWS;
+  const WIN = 100, HAND_MAX = 6, START_HAND = 3, ENERGY_CAP = 6;
+
+  // timer = rounds between firings (a tick happens at the end of every round). Both sides play this same 12-card deck.
+  const DECK = [
+    { id: 'fledgling', name: 'Fledgling', cost: 1, power: 1, timer: 2, fx: { t: 'buffSelf', n: 1 } },
+    { id: 'duelist', name: 'Duelist', cost: 1, power: 2, timer: 3, fx: { t: 'hitOpposite', n: 2 } },
+    { id: 'marksman', name: 'Marksman', cost: 2, power: 2, timer: 2, fx: { t: 'hitTop', n: 1 } },
+    { id: 'frostcaller', name: 'Frostcaller', cost: 2, power: 2, timer: 3, fx: { t: 'slowRow', n: 1 } },
+    { id: 'conjurer', name: 'Sand Conjurer', cost: 2, power: 2, timer: 3, fx: { t: 'spawn', token: 'Sandling', tokenPower: 4 } },
+    { id: 'herald', name: 'Herald', cost: 2, power: 2, timer: 3, fx: { t: 'buffAdj', n: 2 } },
+    { id: 'drillmaster', name: 'Drillmaster', cost: 3, power: 3, timer: 2, fx: { t: 'buffCol', n: 1 } },
+    { id: 'pikeman', name: 'Pikeman', cost: 3, power: 3, timer: 3, fx: { t: 'hitCol', n: 2 } },
+    { id: 'treasurer', name: 'Treasurer', cost: 3, power: 2, timer: 2, fx: { t: 'score', n: 4 } },
+    { id: 'chronomancer', name: 'Chronomancer', cost: 3, power: 3, timer: 3, fx: { t: 'hasten' } },
+    { id: 'warlord', name: 'Warlord', cost: 4, power: 3, timer: 3, fx: { t: 'buffRow', n: 2 } },
+    { id: 'troll', name: 'Troll', cost: 5, power: 5, timer: 3, fx: { t: 'buffSelf', n: 4 } },
+  ];
+  const HEROES = DECK, VILLAINS = DECK;
+
+  function mulberry32(a) {
+    return function () {
+      a |= 0; a = a + 0x6D2B79F5 | 0;
+      let t = Math.imul(a ^ a >>> 15, 1 | a);
+      t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+      return ((t ^ t >>> 14) >>> 0) / 4294967296;
+    };
+  }
+  const other = s => (s === 'you' ? 'foe' : 'you');
+  const cellName = i => 'ABCD'[i % COLS] + (Math.floor(i / COLS) + 1);
+  const rowOf = i => Math.floor(i / COLS);
+  const colOf = i => i % COLS;
+  function neighbors(i) {
+    const r = rowOf(i), c = colOf(i), out = [];
+    if (r > 0) out.push(i - COLS);
+    if (r < ROWS - 1) out.push(i + COLS);
+    if (c > 0) out.push(i - 1);
+    if (c < COLS - 1) out.push(i + 1);
+    return out;
+  }
+  function rowCells(i) { const r = rowOf(i), out = []; for (let c = 0; c < COLS; c++) out.push(r * COLS + c); return out; }
+  function colCells(i) { const c = colOf(i), out = []; for (let r = 0; r < ROWS; r++) out.push(r * COLS + c); return out; }
+
+  function fxText(card) {
+    if (!card.fx) return 'No effect.';
+    const f = card.fx, n = f.n;
+    const t = card.timerBase != null ? card.timerBase : card.timer;
+    let s = '';
+    switch (f.t) {
+      case 'buffSelf': s = `+${n} power to itself`; break;
+      case 'buffAdj': s = `+${n} power to adjacent friendly cards`; break;
+      case 'buffRow': s = `+${n} power to other friendly cards in its row`; break;
+      case 'buffCol': s = `+${n} power to other friendly cards in its column`; break;
+      case 'hitOpposite': s = `−${n} power to the card opposite it`; break;
+      case 'hitRow': s = `−${n} power to every opposing card in the opposite row`; break;
+      case 'hitCol': s = `−${n} power to every opposing card in the opposite column`; break;
+      case 'hitTop': s = `−${n} power to the strongest opposing card (ties go to the front row, then left to right)`; break;
+      case 'hitAll': s = `−${n} power to every opposing card`; break;
+      case 'drainOpposite': s = `drains ${n} power from the card opposite it and keeps it`; break;
+      case 'slowRow': s = `adds ${n} to the timers of every opposing card in the opposite row`; break;
+      case 'score': s = `scores ${n} points`; break;
+      case 'spawn': s = `creates a ${f.tokenPower || 1}-power ${f.token || 'Drone'} in an empty adjacent cell`; break;
+      case 'hasten': s = `takes 1 off the timers of other friendly cards (minimum 1)`; break;
+    }
+    return (t === 1 ? 'Every tick: ' : `Every ${t} ticks: `) + s + '.';
+  }
+  function fxShort(card) {
+    if (!card.fx) return 'no effect';
+    const f = card.fx, n = f.n;
+    switch (f.t) {
+      case 'buffSelf': return `+${n} self`;
+      case 'buffAdj': return `+${n} adjacent`;
+      case 'buffRow': return `+${n} row`;
+      case 'buffCol': return `+${n} column`;
+      case 'hitOpposite': return `−${n} opposite`;
+      case 'hitRow': return `−${n} opposite row`;
+      case 'hitCol': return `−${n} opposite col`;
+      case 'hitTop': return `−${n} top foe`;
+      case 'hitAll': return `−${n} all foes`;
+      case 'drainOpposite': return `drain ${n} opposite`;
+      case 'slowRow': return 'slow opposite row';
+      case 'score': return `+${n} points`;
+      case 'spawn': return 'spawn ' + (f.token || 'Drone');
+      case 'hasten': return 'haste allies';
+    }
+    return '';
+  }
+
+  function makeCard(G, def, owner) {
+    return {
+      uid: ++G.uid, def: def.id, name: def.name, cost: def.cost,
+      base: def.power, power: def.power,
+      timerBase: def.timer, timer: def.timer, fx: def.fx,
+      owner, seq: 0, token: false,
+    };
+  }
+  function makeToken(G, name, owner, power) {
+    power = power || 1;
+    return {
+      uid: ++G.uid, def: 'token', name, cost: 0, base: power, power,
+      timerBase: null, timer: null, fx: null, owner, seq: ++G.seq, token: true,
+    };
+  }
+  function shuffle(G, a) {
+    for (let i = a.length - 1; i > 0; i--) {
+      const j = Math.floor(G.rnd() * (i + 1));
+      [a[i], a[j]] = [a[j], a[i]];
+    }
+    return a;
+  }
+  function log(G, side, text) {
+    G.log.push({ round: G.round, side, text });
+    if (G.log.length > 200) G.log.shift();
+  }
+  function draw(G, side) {
+    const S = G.side[side];
+    if (!S.deck.length && S.discard.length) { S.deck = shuffle(G, S.discard); S.discard = []; }
+    if (!S.deck.length) return null;
+    const c = S.deck.pop();
+    if (S.hand.length >= HAND_MAX) { S.discard.push(c); return null; }
+    S.hand.push(c);
+    return c;
+  }
+
+  function newGame(rnd) {
+    const G = {
+      rnd: rnd || Math.random, uid: 0, seq: 0, round: 0, phase: 'idle', over: null, foeBonus: 0,
+      side: {}, boards: { you: new Array(N).fill(null), foe: new Array(N).fill(null) },
+      plan: [], undo: [], log: [],
+    };
+    for (const [side, defs] of [['you', HEROES], ['foe', VILLAINS]]) {
+      const S = { score: 0, energy: 0, deck: [], hand: [], discard: [] };
+      G.side[side] = S;
+      S.deck = shuffle(G, defs.map(d => makeCard(G, d, side)));
+      for (let k = 0; k < START_HAND; k++) draw(G, side);
+    }
+    return G;
+  }
+  const energyMax = G => Math.min(Math.max(G.round, 1), ENERGY_CAP);
+
+  function startRound(G) {
+    G.round++;
+    for (const side of ['you', 'foe']) {
+      G.side[side].energy = Math.max(1, energyMax(G) + (side === 'foe' ? (G.foeBonus || 0) : 0));
+      draw(G, side);
+    }
+    G.plan = aiPlan(G, 'foe');
+    G.undo = [];
+    G.phase = 'plan';
+    log(G, 'sys', `Round ${G.round} begins.`);
+  }
+
+  // ---------- AI ----------
+  function cellValue(G, card, i, side) {
+    const opp = other(side), f = card.fx, T = card.timerBase;
+    const mine = G.boards[side], theirs = G.boards[opp];
+    const fires = 4 / T;
+    let allies = 0, empty = 0;
+    for (const j of neighbors(i)) { if (!mine[j]) empty++; else allies++; }
+    const rowAllies = rowCells(i).filter(j => j !== i && mine[j]).length;
+    const colAllies = colCells(i).filter(j => j !== i && mine[j]).length;
+    const oppCount = theirs.filter(Boolean).length;
+    const allyCount = mine.filter(Boolean).length;
+    const opposite = theirs[i];
+    const rowOpp = rowCells(i).filter(j => theirs[j]).length;
+    const colOpp = colCells(i).filter(j => theirs[j]).length;
+    let v = card.power;
+    switch (f.t) {
+      case 'buffSelf': v += f.n * fires; break;
+      case 'buffAdj': v += f.n * fires * (allies + 0.5 * empty); break;
+      case 'buffRow': v += f.n * fires * (rowAllies + 1) * 0.8; break;
+      case 'buffCol': v += f.n * fires * (colAllies + 0.7); break;
+      case 'hitOpposite': v += f.n * fires * (opposite ? 1.3 + (opposite.power <= f.n ? 0.8 : 0) : 0.3); break;
+      case 'hitRow': v += f.n * fires * (rowOpp * 1.1 + 0.3); break;
+      case 'hitCol': v += f.n * fires * (colOpp * 1.1 + 0.3); break;
+      case 'hitTop': v += f.n * fires * (oppCount > 0 ? 1.5 : 0); break;
+      case 'hitAll': v += f.n * fires * oppCount * 0.9; break;
+      case 'drainOpposite': v += f.n * fires * (opposite ? 2.2 : 0.4); break;
+      case 'slowRow': v += fires * (rowOpp + 0.2); break;
+      case 'score': v += f.n * fires; break;
+      case 'spawn': v += (f.tokenPower || 1) * 1.5 * fires * (empty > 0 ? 1 : 0); break;
+      case 'hasten': v += fires * allyCount * 0.8; break;
+    }
+    // avoid sitting where the opponent's attackers will hit
+    for (let j = 0; j < N; j++) {
+      const a = theirs[j];
+      if (!a || !a.fx) continue;
+      const af = a.fx, rate = 4 / a.timerBase;
+      if ((af.t === 'hitOpposite' || af.t === 'drainOpposite') && j === i) v -= af.n * rate * 0.5;
+      else if (af.t === 'hitRow' && rowOf(j) === rowOf(i)) v -= af.n * rate * 0.4;
+      else if (af.t === 'hitCol' && colOf(j) === colOf(i)) v -= af.n * rate * 0.4;
+    }
+    return v;
+  }
+  function aiPlan(G, side) {
+    const S = G.side[side];
+    let energy = S.energy;
+    const hand = S.hand.slice();
+    const reserved = new Set();
+    const plan = [];
+    const empties = [];
+    for (let i = 0; i < N; i++) if (!G.boards[side][i]) empties.push(i);
+    for (;;) {
+      let best = null;
+      for (const card of hand) {
+        if (card.cost > energy) continue;
+        for (const i of empties) {
+          if (reserved.has(i)) continue;
+          const v = cellValue(G, card, i, side) + card.cost * 0.35 + G.rnd() * 0.6;
+          if (!best || v > best.v) best = { card, i, v };
+        }
+      }
+      if (!best || best.v < 1.5) break;
+      plan.push({ card: best.card, cell: best.i, placed: false });
+      energy -= best.card.cost;
+      reserved.add(best.i);
+      hand.splice(hand.indexOf(best.card), 1);
+    }
+    return plan;
+  }
+
+  // ---------- player actions ----------
+  function playCard(G, uid, cell) {
+    if (G.phase !== 'plan') return null;
+    const S = G.side.you;
+    const idx = S.hand.findIndex(c => c.uid === uid);
+    if (idx < 0) return null;
+    const card = S.hand[idx];
+    if (card.cost > S.energy || G.boards.you[cell]) return null;
+    S.hand.splice(idx, 1);
+    S.energy -= card.cost;
+    card.seq = ++G.seq;
+    G.boards.you[cell] = card;
+    G.undo.push({ card, cell, idx });
+    log(G, 'you', `You play ${card.name} at ${cellName(cell)}.`);
+    return { card };
+  }
+  function undoPlay(G) {
+    if (G.phase !== 'plan' || !G.undo.length) return false;
+    const u = G.undo.pop();
+    G.boards.you[u.cell] = null;
+    G.side.you.hand.splice(Math.min(u.idx, G.side.you.hand.length), 0, u.card);
+    G.side.you.energy += u.card.cost;
+    log(G, 'you', `You take back ${u.card.name}.`);
+    return true;
+  }
+
+  // ---------- effects (fully deterministic so the forecast is exact) ----------
+  function cleanupDead(G, marks) {
+    for (const side of ['you', 'foe']) {
+      for (let j = 0; j < N; j++) {
+        const t = G.boards[side][j];
+        if (t && t.power <= 0) {
+          G.boards[side][j] = null;
+          if (!t.token) { t.power = t.base; t.timer = t.timerBase; G.side[side].discard.push(t); }
+          marks.push({ side, cell: j, kind: 'destroy', text: '✕' });
+          log(G, side, `${t.name} (${cellName(j)}) is destroyed.`);
+        }
+      }
+    }
+  }
+
+  // Targets are LOCKED at the start of each tick (after the enemy's plays land and timers drop, before any effect fires).
+  // Each firing card then acts only on the cards it locked onto, so earlier effects in the same tick never redirect it.
+  function lockTargets(G, side, i, card) {
+    return effectArea(G, side, i, card).map(a => {
+      const t = G.boards[a.side][a.cell];
+      return { side: a.side, cell: a.cell, uid: t ? t.uid : null };
+    });
+  }
+
+  function fire(G, me, i, locks) {
+    const opp = other(me), mine = G.boards[me];
+    const c = mine[i], f = c.fx;
+    const marks = [{ side: me, cell: i, kind: 'fire', text: '' }];
+    const where = cellName(i);
+    const hurt = (side, j, n) => { G.boards[side][j].power -= n; marks.push({ side, cell: j, kind: 'hurt', text: '−' + n }); };
+    const buff = (side, j, n) => { G.boards[side][j].power += n; marks.push({ side, cell: j, kind: 'buff', text: '+' + n }); };
+    const plural = (k, w) => `${k} ${w}${k === 1 ? '' : 's'}`;
+    // locked cards that are still on the board, in the same cell
+    const alive = locks.filter(a => { const t = G.boards[a.side][a.cell]; return a.uid != null && t && t.uid === a.uid; });
+    const locked = locks.filter(a => a.uid != null).length;
+    const gone = locked - alive.length;
+    const goneNote = gone ? ` (${gone} locked target${gone === 1 ? ' was' : 's were'} already destroyed)` : '';
+    let msg = '';
+
+    switch (f.t) {
+      case 'buffSelf': buff(me, i, f.n); msg = `${c.name} (${where}) grows by ${f.n}.`; break;
+      case 'buffAdj':
+        alive.forEach(a => buff(a.side, a.cell, f.n));
+        msg = `${c.name} (${where}) gives +${f.n} to ${plural(alive.length, 'adjacent card')}.${goneNote}`; break;
+      case 'buffRow':
+        alive.forEach(a => buff(a.side, a.cell, f.n));
+        msg = `${c.name} (${where}) gives +${f.n} to ${plural(alive.length, 'card')} in its row.${goneNote}`; break;
+      case 'buffCol':
+        alive.forEach(a => buff(a.side, a.cell, f.n));
+        msg = `${c.name} (${where}) gives +${f.n} to ${plural(alive.length, 'card')} in its column.${goneNote}`; break;
+      case 'hitOpposite':
+        if (!locked) { msg = `${c.name} (${where}) has nothing opposite it.`; break; }
+        if (!alive.length) { msg = `${c.name} (${where}) lost its target before firing.`; break; }
+        msg = `${c.name} (${where}) hits ${G.boards[opp][alive[0].cell].name} for ${f.n}.`; hurt(opp, alive[0].cell, f.n); break;
+      case 'hitRow':
+        alive.forEach(a => hurt(a.side, a.cell, f.n));
+        msg = `${c.name} (${where}) hits ${plural(alive.length, 'card')} in the opposite row for ${f.n}.${goneNote}`; break;
+      case 'hitCol':
+        alive.forEach(a => hurt(a.side, a.cell, f.n));
+        msg = `${c.name} (${where}) hits ${plural(alive.length, 'card')} in the opposite column for ${f.n}.${goneNote}`; break;
+      case 'hitTop':
+        if (!locked) { msg = `${c.name} (${where}) finds no target.`; break; }
+        if (!alive.length) { msg = `${c.name} (${where}) lost its target before firing.`; break; }
+        msg = `${c.name} (${where}) hits ${G.boards[opp][alive[0].cell].name} (${cellName(alive[0].cell)}) for ${f.n}.`; hurt(opp, alive[0].cell, f.n); break;
+      case 'hitAll':
+        alive.forEach(a => hurt(a.side, a.cell, f.n));
+        msg = `${c.name} (${where}) hits ${plural(alive.length, 'opposing card')} for ${f.n}.${goneNote}`; break;
+      case 'drainOpposite': {
+        if (!locked) { msg = `${c.name} (${where}) has nothing to drain.`; break; }
+        if (!alive.length) { msg = `${c.name} (${where}) lost its target before firing.`; break; }
+        const t = G.boards[opp][alive[0].cell];
+        const amt = Math.min(f.n, t.power);
+        msg = `${c.name} (${where}) drains ${amt} from ${t.name}.`;
+        hurt(opp, alive[0].cell, amt); buff(me, i, amt); break;
+      }
+      case 'slowRow': {
+        const t = alive.filter(a => G.boards[a.side][a.cell].timer != null);
+        t.forEach(a => { G.boards[a.side][a.cell].timer += f.n; marks.push({ side: a.side, cell: a.cell, kind: 'slow', text: '⏱+' + f.n }); });
+        msg = `${c.name} (${where}) slows ${plural(t.length, 'card')} in the opposite row.${goneNote}`; break;
+      }
+      case 'score':
+        G.side[me].score += f.n; marks.push({ side: me, cell: i, kind: 'score', text: '+' + f.n });
+        msg = `${c.name} (${where}) scores ${f.n} points.`; break;
+      case 'spawn': {
+        if (!locks.length) { msg = `${c.name} (${where}) has no room to spawn.`; break; }
+        const j = locks[0].cell;
+        if (mine[j]) { msg = `${c.name} (${where}) found its spawn cell ${cellName(j)} taken.`; break; }
+        mine[j] = makeToken(G, f.token || 'Drone', me, f.tokenPower);
+        marks.push({ side: me, cell: j, kind: 'place', text: '+' + mine[j].power });
+        msg = `${c.name} (${where}) creates a ${mine[j].name} at ${cellName(j)}.`; break;
+      }
+      case 'hasten': {
+        const t = alive.filter(a => G.boards[a.side][a.cell].timer != null && G.boards[a.side][a.cell].timer > 1);
+        t.forEach(a => { G.boards[a.side][a.cell].timer -= 1; marks.push({ side: a.side, cell: a.cell, kind: 'buff', text: '⏱−1' }); });
+        msg = `${c.name} (${where}) speeds up ${plural(t.length, 'friendly timer')}.`; break;
+      }
+    }
+    if (G.targetLog) G.targetLog.set(c.uid, alive.map(a => a.side + ':' + a.cell));
+    log(G, me, msg);
+    cleanupDead(G, marks);
+    return { marks };
+  }
+
+  // ---------- round resolution (generator: yields after each visible step) ----------
+  function* resolveRound(G) {
+    G.phase = 'resolving';
+    G.lastGain = null;
+    yield { type: 'begin' };
+
+    // 1. the enemy's telegraphed plays are made
+    for (const p of G.plan) {
+      const S = G.side.foe;
+      const idx = S.hand.indexOf(p.card);
+      if (idx < 0 || G.boards.foe[p.cell]) continue;
+      S.hand.splice(idx, 1);
+      S.energy -= p.card.cost;
+      p.card.seq = ++G.seq;
+      G.boards.foe[p.cell] = p.card;
+      p.placed = true;
+      log(G, 'foe', `Enemy plays ${p.card.name} at ${cellName(p.cell)}.`);
+      yield { type: 'place', marks: [{ side: 'foe', cell: p.cell, kind: 'place', text: '' }], ms: 'place' };
+    }
+
+    // 2. all timers tick at once, then ready cards fire in placement order
+    const live = [];
+    for (const side of ['you', 'foe']) for (const c of G.boards[side]) if (c) live.push(c);
+    live.sort((a, b) => a.seq - b.seq);
+    const ready = [];
+    for (const c of live) {
+      if (c.timer == null) continue;
+      c.timer -= 1;
+      if (c.timer <= 0) ready.push(c);
+    }
+    // lock every ready card's targets now, before any effect in this tick resolves
+    const locks = new Map();
+    for (const c of ready) {
+      const i = G.boards[c.owner].indexOf(c);
+      if (i >= 0) locks.set(c.uid, lockTargets(G, c.owner, i, c));
+    }
+    yield { type: 'tick', ms: 'tick' };
+
+    for (const c of ready) {
+      const i = G.boards[c.owner].indexOf(c);
+      if (i < 0) { log(G, c.owner, `${c.name} was destroyed before its effect fired.`); continue; }
+      if (c.timer > 0) {
+        log(G, c.owner, `${c.name} (${cellName(i)}) was delayed.`);
+        yield { type: 'delayed', marks: [{ side: c.owner, cell: i, kind: 'slow', text: 'delayed' }], ms: 'fire' };
+        continue;
+      }
+      const r = fire(G, c.owner, i, locks.get(c.uid) || []);
+      c.timer = c.timerBase;
+      if (G.fired) G.fired.add(c.uid);
+      yield { type: 'fire', marks: r.marks, ms: 'fire' };
+    }
+
+    // 3. score: each side banks the total power on its own grid
+    const gain = { you: 0, foe: 0 };
+    for (const side of ['you', 'foe']) for (const c of G.boards[side]) if (c) gain[side] += c.power;
+    G.side.you.score += gain.you;
+    G.side.foe.score += gain.foe;
+    G.lastGain = gain;
+    log(G, 'sys', `Scoring: you +${gain.you}, enemy +${gain.foe}.`);
+    yield { type: 'score', gain, ms: 'score' };
+
+    const y = G.side.you.score, f = G.side.foe.score;
+    if (y >= WIN || f >= WIN) {
+      const winner = y > f ? 'you' : f > y ? 'foe' : (gain.you > gain.foe ? 'you' : gain.foe > gain.you ? 'foe' : 'draw');
+      G.over = { winner };
+      G.phase = 'over';
+      log(G, 'sys', winner === 'draw' ? 'The game is a draw.' : winner === 'you' ? 'You win!' : 'The enemy wins.');
+      yield { type: 'over' };
+      return;
+    }
+    startRound(G);
+    yield { type: 'round' };
+  }
+
+  // ---------- targeting queries (used for hover highlights) ----------
+  // The board as it will be once the enemy's telegraphed plays land (what targets are locked against).
+  function previewBoards(G) {
+    const B = { you: G.boards.you.slice(), foe: G.boards.foe.slice() };
+    for (const p of G.plan) if (!p.placed && !B.foe[p.cell]) B.foe[p.cell] = p.card;
+    return B;
+  }
+  // Cells a card's effect would touch at the next tick, as [{side, cell}]. Pass B (previewBoards) to include telegraphed cards.
+  function effectArea(G, side, i, card, B) {
+    const f = card.fx;
+    if (!f) return [];
+    B = B || G.boards;
+    const opp = other(side), mine = B[side], theirs = B[opp];
+    const own = js => js.map(j => ({ side, cell: j }));
+    const their = js => js.map(j => ({ side: opp, cell: j }));
+    const all = [...Array(N).keys()];
+    switch (f.t) {
+      case 'buffAdj': return own(neighbors(i));
+      case 'buffRow': return own(rowCells(i).filter(j => j !== i));
+      case 'buffCol': return own(colCells(i).filter(j => j !== i));
+      case 'hitOpposite': case 'drainOpposite': return their([i]);
+      case 'hitRow': case 'slowRow': return their(rowCells(i));
+      case 'hitCol': return their(colCells(i));
+      case 'hitTop': {
+        let top = -1;
+        for (let j = 0; j < N; j++) if (theirs[j] && (top < 0 || theirs[j].power > theirs[top].power)) top = j;
+        return top < 0 ? [] : their([top]);
+      }
+      case 'hitAll': return their(all.filter(j => theirs[j]));
+      case 'spawn': { const j = neighbors(i).find(k => !mine[k]); return j == null ? [] : own([j]); }
+      case 'hasten': return own(all.filter(j => j !== i && mine[j] && mine[j].timer != null));
+      default: return [];
+    }
+  }
+  // Every other card (placed, or telegraphed by the enemy) whose effect would touch cell (side, i).
+  function influences(G, side, i) {
+    const out = [], B = previewBoards(G);
+    for (const s of ['you', 'foe']) for (let j = 0; j < N; j++) {
+      const c = B[s][j];
+      if (!c || (s === side && j === i)) continue;
+      if (effectArea(G, s, j, c, B).some(a => a.side === side && a.cell === i)) out.push({ side: s, cell: j, hostile: s !== side });
+    }
+    return out;
+  }
+
+  // ---------- forecast: dry-run the round on a copy ----------
+  function clonePreview(G) {
+    const map = new Map();
+    const cp = c => { if (!c) return null; if (map.has(c)) return map.get(c); const d = Object.assign({}, c); map.set(c, d); return d; };
+    const C = {
+      rnd: G.rnd, uid: G.uid, seq: G.seq, round: G.round, phase: 'plan', over: null, log: [], undo: [],
+      fired: new Set(), side: {},
+      boards: { you: G.boards.you.map(cp), foe: G.boards.foe.map(cp) },
+    };
+    for (const s of ['you', 'foe']) {
+      const S = G.side[s];
+      C.side[s] = { score: S.score, energy: S.energy, deck: [], hand: S.hand.map(cp), discard: [] };
+    }
+    C.plan = G.plan.map(p => Object.assign({}, p, { card: cp(p.card) }));
+    return C;
+  }
+  function forecast(G) {
+    if (G.phase !== 'plan') return null;
+    const C = clonePreview(G);
+    const before = new Map();
+    for (const s of ['you', 'foe']) G.boards[s].forEach((c, i) => { if (c) before.set(c.uid, { p0: c.power }); });
+    for (const p of G.plan) before.set(p.card.uid, { p0: p.card.power });
+    let gain = { you: 0, foe: 0 };
+    for (const ev of resolveRound(C)) { if (ev.type === 'score') { gain = ev.gain; break; } }
+    const present = new Map();
+    for (const s of ['you', 'foe']) C.boards[s].forEach((c, i) => { if (c) present.set(c.uid, { side: s, cell: i, c }); });
+    const out = { byUid: {}, spawn: [], gain, after: { you: C.side.you.score, foe: C.side.foe.score } };
+    for (const [uid, b] of before) {
+      const now = present.get(uid);
+      out.byUid[uid] = { p0: b.p0, p1: now ? now.c.power : 0, dies: !now, fires: C.fired.has(uid) };
+    }
+    for (const [uid, n] of present) if (!before.has(uid)) out.spawn.push({ side: n.side, cell: n.cell, name: n.c.name });
+    return out;
+  }
+
+  const api = {
+    COLS, ROWS, N, WIN, HAND_MAX, ENERGY_CAP, HEROES, VILLAINS,
+    mulberry32, other, cellName, rowOf, colOf, neighbors, rowCells, colCells, fxText, fxShort, energyMax,
+    newGame, startRound, aiPlan, cellValue, playCard, undoPlay, resolveRound, forecast, effectArea, influences, previewBoards,
+  };
+  if (typeof module !== 'undefined' && module.exports) module.exports = api;
+  return api;
+})();
+
+(function () {
+  'use strict';
+  const $ = s => document.querySelector(s);
+  const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const cn = Core.cellName;
+  const DELAY = { place: 650, tick: 500, fire: 800, fizzle: 650, score: 1100 };
+  const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+  let G = null;
+  const ui = { sel: null, inspect: null, flash: {}, busy: false, gain: null, fast: false, showFc: true, diff: 0, tip: '', fc: null, hover: null };
+
+  function start() {
+    G = Core.newGame(Math.random);
+    G.foeBonus = ui.diff;
+    Core.startRound(G);
+    Object.assign(ui, { sel: null, inspect: null, flash: {}, busy: false, gain: null, tip: '', fc: null, hover: null });
+    render();
+  }
+
+  // ---------- hover highlights: cells a card affects, and cards that affect it ----------
+  // Classes are toggled on the existing cells (no re-render), so hovering never disturbs the DOM under the pointer.
+  function applyHl() {
+    const cells = document.querySelectorAll('.cell');
+    const h = ui.hover;
+    let out = null, inn = null, srcKey = null, placing = null;
+    if (h && !ui.busy && !G.over) {
+      srcKey = h.side + ':' + h.i;
+      const c = G.boards[h.side][h.i];
+      const gh = !c && h.side === 'foe' ? ghostAt(h.i) : null;
+      // with a hand card selected, hovering an empty cell of your grid previews that card placed there
+      if (!c && h.side === 'you' && ui.sel != null && G.phase === 'plan') placing = G.side.you.hand.find(x => x.uid === ui.sel) || null;
+      const card = c || (gh && gh.card) || placing;
+      out = new Set();
+      if (card) for (const a of Core.effectArea(G, h.side, h.i, card, Core.previewBoards(G))) out.add(a.side + ':' + a.cell);
+      inn = new Map();
+      for (const x of Core.influences(G, h.side, h.i)) inn.set(x.side + ':' + x.cell, x.hostile ? 'threat' : 'boost');
+      if (!card) srcKey = null;
+    }
+    cells.forEach(el => {
+      el.classList.remove('hl-out', 'hl-foe', 'hl-ally', 'hl-src');
+      el.removeAttribute('data-hl');
+      if (!out) return;
+      const k = el.dataset.side + ':' + el.dataset.cell;
+      const labels = [];
+      if (out.has(k)) { el.classList.add('hl-out'); labels.push('target'); }
+      const kind = inn.get(k);
+      if (kind) { el.classList.add(kind === 'threat' ? 'hl-foe' : 'hl-ally'); labels.push(kind); }
+      if (k === srcKey) el.classList.add('hl-src');
+      if (k === srcKey && placing) el.setAttribute('data-hl', 'place here');
+      else if (labels.length && k !== srcKey) el.setAttribute('data-hl', labels.join(' + '));
+    });
+  }
+  function setHover(side, i) { ui.hover = { side, i }; applyHl(); }
+  function clearHover() { ui.hover = null; applyHl(); }
+
+  const ghostAt = i => G.plan.find(p => p.cell === i && !p.placed) || null;
+
+  // ---------- rendering ----------
+  function renderScores() {
+    const row = (side, label) => {
+      const s = G.side[side];
+      const g = ui.gain ? ui.gain[side] : 0;
+      let extra = '';
+      if (ui.fc) extra = `<em class="proj" title="Forecast for this round">+${ui.fc.gain[side]} forecast</em>`;
+      else if (g) extra = `<em>+${g}</em>`;
+      return `<div class="srow ${side}"><div class="slabel">${label}</div>
+        <div class="bar" role="progressbar" aria-label="${label} score" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${Math.min(100, s.score)}"><i style="width:${Math.min(100, s.score)}%"></i></div>
+        <div class="snum"><b>${s.score}</b><span>/ 100</span>${extra}</div></div>`;
+    };
+    $('#scores').innerHTML = row('foe', 'Enemy') + row('you', 'You');
+  }
+
+  function renderIntent() {
+    const el = $('#intent');
+    if (G.over) {
+      const w = G.over.winner;
+      const txt = w === 'you' ? 'You win' : w === 'foe' ? 'The enemy wins' : 'Draw';
+      el.innerHTML = `<div class="verdict ${w}"><div><strong>${txt}</strong><span>Final score ${G.side.you.score} to ${G.side.foe.score} after ${G.round} rounds.</span></div><button class="btn primary" id="again" type="button">Play again</button></div>`;
+      return;
+    }
+    const F = G.side.foe;
+    const lead = `<div class="lead"><b>Enemy intends</b> this round (${F.energy} energy, ${F.hand.length} cards in hand)${G.plan.length ? '' : ': nothing to play.'}</div>`;
+    const chips = G.plan.map((p, k) =>
+      `<button class="chip${p.placed ? ' done' : ''}" type="button" data-plan="${k}"><b>${k + 1}</b>${esc(p.card.name)} <span>to ${cn(p.cell)}</span></button>`).join('');
+    el.innerHTML = lead + chips;
+  }
+
+  function badge(f) {
+    if (!f) return '';
+    if (f.dies) return '<span class="fc bad">✕ dies</span>';
+    const d = f.p1 - f.p0;
+    if (!d) return '';
+    return `<span class="fc ${d > 0 ? 'good' : 'bad'}">${d > 0 ? '+' : '−'}${Math.abs(d)}</span>`;
+  }
+
+  function cellHTML(side, i) {
+    const c = G.boards[side][i];
+    const fl = ui.flash[side + ':' + i];
+    const flc = fl ? fl.kinds.map(k => 'f-' + k).join(' ') : '';
+    const pop = fl && fl.text ? `<span class="pop ${fl.kinds[fl.kinds.length - 1]}">${esc(fl.text)}</span>` : '';
+    const placing = side === 'you' && G.phase === 'plan' && ui.sel != null && !ui.busy;
+    const fc = ui.fc;
+    const attrs = `data-side="${side}" data-cell="${i}"`;
+    if (c) {
+      const f = fc && fc.byUid[c.uid];
+      const soon = c.timer != null && (f ? f.fires : c.timer === 1);
+      const t = c.timer == null ? '' : `<span class="tm${soon ? ' soon' : ''}" title="Fires at the end of round ${G.round + c.timer - 1}">${c.timer}</span>`;
+      return `<button class="cell card ${side} ${flc}" type="button" ${attrs} aria-label="${esc(c.name)}, power ${c.power}, ${side === 'you' ? 'yours' : 'enemy'}, ${cn(i)}">
+        <span class="nm">${esc(c.name)}</span>${t}<span class="fx">${esc(Core.fxShort(c))}</span>
+        <span class="bot"><span class="pw">${c.power}</span><span class="rt">${badge(f)}</span></span>${pop}</button>`;
+    }
+    const gh = side === 'foe' ? ghostAt(i) : null;
+    if (gh) {
+      const k = G.plan.indexOf(gh) + 1;
+      const f = fc && fc.byUid[gh.card.uid];
+      const soon = f ? f.fires : gh.card.timerBase === 1;
+      return `<button class="cell ghost ${flc}" type="button" ${attrs} aria-label="Enemy intends to play ${esc(gh.card.name)} at ${cn(i)}">
+        <span class="nm">${esc(gh.card.name)}</span><span class="tm${soon ? ' soon' : ''}" title="Timer">${gh.card.timerBase}</span><span class="fx">${esc(Core.fxShort(gh.card))}</span>
+        <span class="bot"><span class="pw">${gh.card.power}</span><span class="rt"><span class="next">NEXT ${k}</span>${badge(f)}</span></span>${pop}</button>`;
+    }
+    const sp = fc && fc.spawn.find(s => s.side === side && s.cell === i);
+    return `<button class="cell empty${placing ? ' target' : ''} ${flc}" type="button" ${attrs} aria-label="Empty cell ${cn(i)}"><span class="co">${cn(i)}</span>${sp ? `<span class="fc spawn">+${esc(sp.name)}</span>` : ''}${pop}</button>`;
+  }
+  function renderBoards() {
+    // the enemy grid is drawn back row first, so the two front rows meet at the front line
+    for (const side of ['foe', 'you']) {
+      const rows = side === 'foe' ? [2, 1, 0] : [0, 1, 2];
+      let h = '';
+      for (const r of rows) for (let c = 0; c < Core.COLS; c++) h += cellHTML(side, r * Core.COLS + c);
+      $('#board-' + side).innerHTML = h;
+    }
+  }
+
+  function renderStatus() {
+    const Y = G.side.you, max = Core.energyMax(G);
+    let pips = '';
+    for (let k = 0; k < max; k++) pips += k < Y.energy ? '●' : '○';
+    let tip = ui.tip;
+    if (!tip && ui.sel != null) {
+      const c = Y.hand.find(h => h.uid === ui.sel);
+      if (c) tip = `Choose an empty cell on your grid for ${c.name}.`;
+    }
+    $('#status').innerHTML = G.over ? `<span>Game over.</span>` :
+      `<span>Round <b>${G.round}</b></span><span>Energy <span class="pips" aria-label="${Y.energy} of ${max} energy">${pips}</span> <b>${Y.energy}</b></span><span>Deck <b>${Y.deck.length}</b> &middot; Discard <b>${Y.discard.length}</b></span>${tip ? `<span class="tip">${esc(tip)}</span>` : ''}`;
+  }
+
+  function renderHand() {
+    const Y = G.side.you;
+    if (!Y.hand.length) { $('#hand').innerHTML = `<div class="empty-hand">Your hand is empty. End the round to draw.</div>`; return; }
+    $('#hand').innerHTML = Y.hand.map(c => {
+      const poor = c.cost > Y.energy;
+      return `<button class="hcard${ui.sel === c.uid ? ' sel' : ''}${poor ? ' poor' : ''}" type="button" data-hand="${c.uid}" aria-pressed="${ui.sel === c.uid}">
+        <span class="hhead"><span class="cost" title="Energy cost">${c.cost}</span><span class="hn">${esc(c.name)}</span></span>
+        <span class="hmeta"><span class="pw">${c.power}</span><span class="tm" title="Timer (ticks between effects)">${c.timerBase}</span></span>
+        <span class="hfx">${esc(Core.fxText(c))}</span></button>`;
+    }).join('');
+  }
+
+  function inspectModel() {
+    const t = ui.inspect;
+    if (!t) return null;
+    if (t.k === 'cell') {
+      const c = G.boards[t.side][t.i];
+      if (c) return { card: c, where: cn(t.i), kind: 'board' };
+      const p = t.side === 'foe' ? ghostAt(t.i) : null;
+      if (p) return { card: p.card, where: cn(t.i), kind: 'ghost' };
+      return null;
+    }
+    if (t.k === 'hand') {
+      const c = G.side.you.hand.find(h => h.uid === t.uid);
+      return c ? { card: c, kind: 'hand' } : null;
+    }
+    if (t.k === 'plan') {
+      const p = G.plan[t.i];
+      return p ? { card: p.card, where: cn(p.cell), kind: 'ghost' } : null;
+    }
+    return null;
+  }
+  function renderInspect() {
+    const el = $('#inspect');
+    const m = inspectModel();
+    if (!m) {
+      el.innerHTML = `<h2>Inspector</h2><p class="note">Hover or tap any card, ghost or chip to read what it does and when it fires. The board also marks the cells it affects (amber), the enemy cards that affect it (red) and the friendly cards that affect it (green).</p>`;
+      return;
+    }
+    const c = m.card, owner = c.owner;
+    const timer = c.timerBase == null ? 'None' : (m.kind === 'board' ? `${c.timer} / ${c.timerBase}` : `${c.timerBase}`);
+    let when = '';
+    if (c.timerBase == null) when = 'It has no effect. It just adds its power.';
+    else if (m.kind === 'board') when = c.timer === 1 ? `Fires at the end of this round (round ${G.round}).` : `Fires at the end of round ${G.round + c.timer - 1}.`;
+    else when = `If placed this round, it first fires at the end of round ${G.round + c.timerBase - 1}.`;
+    let note = '';
+    if (m.kind === 'ghost') note = `<p class="note">The enemy intends to play this at ${m.where}. It can't be blocked, so use the forecast to see what it will hit and arrange your own cards around it.</p>`;
+    if (m.kind === 'hand') note = `<p class="note">Select it, then choose an empty cell on your grid. Cost ${c.cost} of your ${G.side.you.energy} energy.</p>`;
+    let fcast = '';
+    const f = ui.fc && ui.fc.byUid[c.uid];
+    if (f) {
+      const bits = [];
+      if (f.dies) bits.push('destroyed this round');
+      else if (f.p1 !== f.p0) bits.push(`power ${f.p0} → ${f.p1}`);
+      else bits.push('power unchanged');
+      if (f.fires) bits.push('fires');
+      fcast = `<p class="fcast">Forecast: ${bits.join(', ')}.</p>`;
+    }
+    el.innerHTML = `<div class="ih"><span class="tag ${owner}">${owner === 'you' ? 'You' : 'Enemy'}</span><h2>${esc(c.name)}</h2></div>
+      <div class="stats"><div><small>Cost</small><b>${c.cost}</b></div><div><small>Power</small><b>${c.power}</b></div><div><small>Timer</small><b>${timer}</b></div></div>
+      <p>${esc(Core.fxText(c))}</p><p class="note">${esc(when)}</p>${fcast}${note}`;
+  }
+
+  function renderLog() {
+    const rows = G.log.slice(-40).reverse().map(l => `<div class="ln ${l.side}"><i></i><span>R${l.round}</span><div>${esc(l.text)}</div></div>`).join('');
+    $('#log').innerHTML = `<h2>Log</h2>${rows}`;
+  }
+
+  function renderControls() {
+    $('#end').disabled = ui.busy || G.phase !== 'plan';
+    $('#end').textContent = ui.busy ? 'Resolving…' : 'End round';
+    $('#undo').disabled = ui.busy || G.phase !== 'plan' || !G.undo.length;
+  }
+
+  function render() {
+    ui.fc = (ui.showFc && G.phase === 'plan' && !ui.busy) ? Core.forecast(G) : null;
+    renderScores(); renderIntent(); renderBoards(); renderStatus(); renderHand(); renderInspect(); renderLog(); renderControls();
+    applyHl();
+  }
+
+  // ---------- input ----------
+  function addFlash(map, marks) {
+    for (const m of marks || []) {
+      const key = m.side + ':' + m.cell;
+      const f = map[key] || (map[key] = { kinds: [], text: '' });
+      if (!f.kinds.includes(m.kind)) f.kinds.push(m.kind);
+      if (m.text) f.text = m.text;
+    }
+  }
+
+  // On touch screens there is no hover, so the first tap on a cell previews the placement and the second tap confirms it.
+  const noHover = () => typeof window !== 'undefined' && !!window.matchMedia && window.matchMedia('(hover: none)').matches;
+
+  function onCell(side, i) {
+    ui.tip = '';
+    ui.hover = { side, i };
+    if (side === 'you' && !G.boards.you[i] && ui.sel != null && G.phase === 'plan' && !ui.busy) {
+      const key = side + ':' + i;
+      if (noHover() && ui.armed !== key) {
+        ui.armed = key;
+        ui.tip = 'Tap the cell again to place it here.';
+        renderStatus(); applyHl();
+        return;
+      }
+      ui.armed = null;
+      const r = Core.playCard(G, ui.sel, i);
+      if (r) {
+        ui.sel = null;
+        ui.inspect = { k: 'cell', side, i };
+        ui.flash = { [side + ':' + i]: { kinds: ['place'], text: '' } };
+        render();
+        ui.flash = {};
+        return;
+      }
+    }
+    if (G.boards[side][i] || (side === 'foe' && ghostAt(i))) { ui.inspect = { k: 'cell', side, i }; renderInspect(); }
+    applyHl();
+  }
+  function onHand(uid) {
+    const c = G.side.you.hand.find(h => h.uid === uid);
+    if (!c) return;
+    ui.inspect = { k: 'hand', uid };
+    ui.armed = null;
+    if (G.phase === 'plan' && !ui.busy) {
+      if (c.cost > G.side.you.energy) { ui.sel = null; ui.tip = `${c.name} costs ${c.cost} energy and you have ${G.side.you.energy}.`; }
+      else { ui.sel = ui.sel === uid ? null : uid; ui.tip = ''; }
+    }
+    render();
+  }
+
+  async function endRound() {
+    if (ui.busy || G.phase !== 'plan') return;
+    ui.busy = true; ui.sel = null; ui.gain = null; ui.tip = ''; ui.hover = null;
+    render();
+    for (const ev of Core.resolveRound(G)) {
+      ui.flash = {};
+      addFlash(ui.flash, ev.marks);
+      if (ev.gain) ui.gain = ev.gain;
+      render();
+      if (ev.ms) await sleep(ui.fast ? 90 : DELAY[ev.ms]);
+    }
+    ui.flash = {};
+    ui.busy = false;
+    render();
+  }
+
+  for (const side of ['foe', 'you']) {
+    const b = $('#board-' + side);
+    b.addEventListener('click', e => { const el = e.target.closest('[data-cell]'); if (el) onCell(side, +el.dataset.cell); });
+    for (const ev of ['mouseover', 'focusin']) {
+      b.addEventListener(ev, e => {
+        const el = e.target.closest('[data-cell]'); if (!el) return;
+        const i = +el.dataset.cell;
+        if (G.boards[side][i] || (side === 'foe' && ghostAt(i))) { ui.inspect = { k: 'cell', side, i }; renderInspect(); }
+        setHover(side, i);
+      });
+    }
+    for (const ev of ['mouseleave']) b.addEventListener(ev, clearHover);
+  }
+  $('#hand').addEventListener('click', e => { const b = e.target.closest('[data-hand]'); if (b) onHand(+b.dataset.hand); });
+  $('#intent').addEventListener('click', e => {
+    if (e.target.closest('#again')) { start(); return; }
+    const b = e.target.closest('[data-plan]');
+    if (b) { ui.inspect = { k: 'plan', i: +b.dataset.plan }; renderInspect(); }
+  });
+  for (const ev of ['mouseover', 'focusin']) {
+    $('#hand').addEventListener(ev, e => {
+      const b = e.target.closest('[data-hand]'); if (!b) return;
+      ui.inspect = { k: 'hand', uid: +b.dataset.hand }; renderInspect();
+    });
+    $('#intent').addEventListener(ev, e => {
+      const b = e.target.closest('[data-plan]'); if (!b) return;
+      const k = +b.dataset.plan;
+      ui.inspect = { k: 'plan', i: k }; renderInspect();
+      if (G.plan[k] && !G.plan[k].placed) setHover('foe', G.plan[k].cell);
+    });
+  }
+  for (const ev of ['mouseleave']) $('#intent').addEventListener(ev, clearHover);
+  $('#end').addEventListener('click', endRound);
+  $('#undo').addEventListener('click', () => { if (Core.undoPlay(G)) { ui.sel = null; ui.tip = ''; render(); } });
+  $('#newgame').addEventListener('click', start);
+  $('#diff').addEventListener('change', e => { ui.diff = +e.target.value; start(); });
+  $('#fast').addEventListener('change', e => { ui.fast = e.target.checked; });
+  $('#showfc').addEventListener('change', e => { ui.showFc = e.target.checked; render(); });
+
+  start();
+})();
+
+</script>
+</body>
+</html>

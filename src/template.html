@@ -1,0 +1,241 @@
+<title>Countdown Grid</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Inter:wght@400;500;600&display=swap">
+<style>
+/* Layout: score meters on top; the enemy's 3x4 grid above the front line, your 3x4 grid below it, so opposite cells share a label; hand under your grid; inspector and log in a side column. */
+:root {
+  --bg: #e9edf3; --surface: #ffffff; --surface-2: #f2f5f9; --ink: #131822; --muted: #566074; --line: #cdd5e1;
+  --you: #1f5ad0; --you-soft: #dde8fc; --you-ink: #123b8f; --you-wash: rgba(31, 90, 208, .09); --on-you: #ffffff;
+  --foe: #c53a2f; --foe-soft: #fbe0dc; --foe-ink: #8e2118; --foe-wash: rgba(197, 58, 47, .09);
+  --timer: #b36b00; --on-timer: #ffffff; --good: #1b8a4b; --bad: #c53a2f;
+  --f-display: 'Barlow Condensed', 'Arial Narrow', system-ui, sans-serif;
+  --f-body: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0e1219; --surface: #161c27; --surface-2: #1d2533; --ink: #e7ebf2; --muted: #9aa5b8; --line: #2b3547;
+    --you: #6c9bff; --you-soft: #1a2b52; --you-ink: #c3d6ff; --you-wash: rgba(108, 155, 255, .12); --on-you: #0b1220;
+    --foe: #ff6f63; --foe-soft: #47201d; --foe-ink: #ffc9c3; --foe-wash: rgba(255, 111, 99, .12);
+    --timer: #f2b24c; --on-timer: #1a1203; --good: #4fd18b; --bad: #ff6f63;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0e1219; --surface: #161c27; --surface-2: #1d2533; --ink: #e7ebf2; --muted: #9aa5b8; --line: #2b3547;
+  --you: #6c9bff; --you-soft: #1a2b52; --you-ink: #c3d6ff; --you-wash: rgba(108, 155, 255, .12); --on-you: #0b1220;
+  --foe: #ff6f63; --foe-soft: #47201d; --foe-ink: #ffc9c3; --foe-wash: rgba(255, 111, 99, .12);
+  --timer: #f2b24c; --on-timer: #1a1203; --good: #4fd18b; --bad: #ff6f63;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body { background: var(--bg); color: var(--ink); font-family: var(--f-body); font-size: 15px; line-height: 1.4; }
+button { font: inherit; color: inherit; }
+button:focus-visible, select:focus-visible, input:focus-visible, summary:focus-visible { outline: 3px solid var(--ink); outline-offset: 2px; }
+
+.app { max-width: 1120px; margin: 0 auto; padding-block: 20px 48px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+.top { display: flex; flex-wrap: wrap; gap: 12px 24px; align-items: flex-end; justify-content: space-between; margin-bottom: 14px; }
+.top h1 { margin: 0; font: 700 36px/1 var(--f-display); letter-spacing: .05em; text-transform: uppercase; }
+.top .sub { margin: 4px 0 0; color: var(--muted); font-size: 13px; max-width: 52ch; }
+.ctrls { display: flex; flex-wrap: wrap; gap: 10px 14px; align-items: center; font-size: 13px; color: var(--muted); }
+.ctrls label { display: inline-flex; gap: 6px; align-items: center; }
+select { font: inherit; color: var(--ink); background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 6px 8px; }
+
+.btn { border: 1px solid var(--line); background: var(--surface); border-radius: 9px; padding: 9px 14px; font-weight: 600; cursor: pointer; }
+.btn:disabled { opacity: .45; cursor: not-allowed; }
+.btn.primary { background: var(--you); border-color: var(--you); color: var(--on-you); }
+.btn.ghost:hover:not(:disabled) { background: var(--surface-2); }
+
+.scores { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; display: grid; gap: 10px; }
+.srow { display: grid; grid-template-columns: 56px minmax(0, 1fr) auto; gap: 12px; align-items: center; }
+.slabel { font: 600 14px var(--f-display); letter-spacing: .1em; text-transform: uppercase; }
+.srow.you .slabel { color: var(--you); } .srow.foe .slabel { color: var(--foe); }
+.bar { height: 14px; border-radius: 999px; background: var(--surface-2); border: 1px solid var(--line); overflow: hidden; }
+.bar i { display: block; height: 100%; width: 0; transition: width .5s ease; }
+.srow.you .bar i { background: var(--you); } .srow.foe .bar i { background: var(--foe); }
+.snum { min-width: 150px; text-align: right; font-variant-numeric: tabular-nums; }
+.snum b { font: 700 28px/1 var(--f-display); }
+.snum span { color: var(--muted); font-size: 13px; margin-left: 2px; }
+.snum em { font-style: normal; font-weight: 600; font-size: 13px; margin-left: 8px; color: var(--good); }
+.snum em.proj { color: var(--muted); font-weight: 500; }
+
+.stage { display: grid; gap: 20px; margin-top: 16px; grid-template-columns: minmax(0, 1fr); align-items: start; }
+@media (min-width: 920px) { .stage { grid-template-columns: minmax(0, 1fr) 320px; } }
+.play { min-width: 0; max-width: 580px; }
+
+.intent { min-height: 58px; display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; }
+.intent .lead { font-size: 13px; color: var(--muted); flex-basis: 100%; }
+.intent .lead b { color: var(--foe); font-weight: 600; }
+.chip { display: inline-flex; gap: 7px; align-items: center; border: 1.5px dashed var(--foe); background: var(--foe-wash); color: var(--foe-ink); border-radius: 999px; padding: 4px 11px 4px 5px; font-size: 13px; font-weight: 500; cursor: pointer; }
+.chip b { display: grid; place-items: center; width: 20px; height: 20px; border-radius: 50%; background: var(--foe); color: var(--surface); font: 700 12px var(--f-display); }
+.chip span { opacity: .8; }
+.chip.done { border-style: solid; opacity: .6; }
+.verdict { width: 100%; display: flex; flex-wrap: wrap; gap: 12px; justify-content: space-between; align-items: center; border-radius: 12px; padding: 12px 16px; border: 1.5px solid var(--line); background: var(--surface); }
+.verdict strong { display: block; font: 700 28px/1.1 var(--f-display); letter-spacing: .04em; text-transform: uppercase; }
+.verdict span { color: var(--muted); font-size: 13px; }
+.verdict.you { border-color: var(--you); background: var(--you-wash); } .verdict.foe { border-color: var(--foe); background: var(--foe-wash); }
+
+.gl { display: flex; flex-wrap: wrap; gap: 2px 10px; align-items: baseline; font-size: 12px; color: var(--muted); margin: 6px 0; }
+.gl b { font: 700 15px var(--f-display); letter-spacing: .1em; text-transform: uppercase; }
+.grid.foe .gl b { color: var(--foe); } .grid.you .gl b { color: var(--you); }
+.frontline { display: flex; align-items: center; gap: 10px; margin: 10px 0; font: 600 11px var(--f-display); letter-spacing: .16em; text-transform: uppercase; color: var(--muted); }
+.frontline::before, .frontline::after { content: ""; flex: 1; border-top: 2px dotted var(--line); }
+
+.board { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+.cell { position: relative; aspect-ratio: 4 / 3; min-width: 0; padding: 0; text-align: left; cursor: pointer; overflow: hidden; border-radius: 10px; border: 1.5px solid var(--line); background: var(--surface-2); }
+.cell.empty { border-style: dashed; background: transparent; display: grid; place-items: center; }
+.cell .co { font: 600 12px var(--f-display); letter-spacing: .1em; color: var(--muted); }
+.cell.target { border-color: var(--you); border-style: dashed; background: var(--you-wash); }
+.cell.target:hover { background: var(--you-soft); }
+.cell.card, .cell.ghost { display: flex; flex-direction: column; justify-content: space-between; padding: 6px 7px 5px; }
+.cell.you { background: var(--you-soft); border-color: var(--you); color: var(--you-ink); }
+.cell.foe { background: var(--foe-soft); border-color: var(--foe); color: var(--foe-ink); }
+.cell.ghost { border-style: dashed; border-color: var(--foe); background: var(--foe-wash); color: var(--foe-ink); }
+.nm { font-weight: 600; font-size: clamp(10px, 1.5vw, 12.5px); line-height: 1.15; padding-right: 26px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.fx { font-size: 11px; line-height: 1.15; opacity: .85; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.bot { display: flex; justify-content: space-between; align-items: flex-end; gap: 4px; }
+.pw { font: 700 clamp(26px, 4.2vw, 36px)/.95 var(--f-display); font-variant-numeric: tabular-nums; }
+.rt { display: flex; flex-direction: column; align-items: flex-end; gap: 2px; }
+.next { font: 600 10px var(--f-display); letter-spacing: .12em; opacity: .8; }
+.fc { font: 700 12px/1 var(--f-display); letter-spacing: .02em; padding: 3px 6px; border-radius: 999px; background: var(--surface); border: 1.5px solid currentColor; }
+.fc.good { color: var(--good); } .fc.bad { color: var(--bad); } .fc.spawn { color: var(--muted); }
+.cell.empty .fc { position: absolute; bottom: 6px; right: 6px; }
+.tm { position: absolute; top: 5px; right: 5px; width: 24px; height: 24px; border-radius: 50%; display: grid; place-items: center; border: 2px solid var(--timer); background: var(--surface); color: var(--ink); font: 700 14px/1 var(--f-display); }
+.tm.soon { background: var(--timer); color: var(--on-timer); animation: beat 1.4s ease-in-out infinite; }
+@keyframes beat { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.16); } }
+.pop { position: absolute; left: 0; right: 0; top: 34%; text-align: center; font: 700 24px/1 var(--f-display); pointer-events: none; text-shadow: 0 1px 0 var(--surface), 0 0 6px var(--surface); animation: rise .9s ease-out forwards; }
+.pop.buff { color: var(--good); } .pop.hurt, .pop.destroy { color: var(--bad); } .pop.score, .pop.slow { color: var(--timer); } .pop.place { color: var(--muted); }
+@keyframes rise { from { transform: translateY(8px); opacity: 0; } 20% { opacity: 1; } to { transform: translateY(-10px); opacity: 1; } }
+.cell.f-fire { box-shadow: 0 0 0 3px var(--timer), 0 0 18px var(--timer); z-index: 2; }
+.cell.f-buff { box-shadow: 0 0 0 3px var(--good); }
+.cell.f-hurt, .cell.f-destroy { box-shadow: 0 0 0 3px var(--bad); }
+.cell.f-slow, .cell.f-score { box-shadow: 0 0 0 3px var(--timer); }
+.cell.f-place { animation: drop .35s ease-out; }
+@keyframes drop { from { transform: scale(.82); opacity: .2; } to { transform: scale(1); opacity: 1; } }
+.cell.hl-out { outline: 3px dashed var(--timer); outline-offset: -3px; }
+.cell.hl-foe { box-shadow: inset 0 0 0 3px var(--bad); }
+.cell.hl-ally { box-shadow: inset 0 0 0 3px var(--good); }
+.cell.hl-src { box-shadow: 0 0 0 3px var(--ink); z-index: 3; }
+.cell[data-hl]::after { content: attr(data-hl); position: absolute; left: 50%; bottom: 4px; transform: translateX(-50%); font: 700 10px/1 var(--f-display); letter-spacing: .12em; text-transform: uppercase; padding: 2px 5px; border-radius: 999px; background: var(--ink); color: var(--bg); white-space: nowrap; pointer-events: none; }
+.legend { display: flex; flex-wrap: wrap; gap: 4px 14px; margin: 6px 0 0; font-size: 12px; color: var(--muted); }
+.legend span { display: inline-flex; gap: 6px; align-items: center; }
+.legend i { width: 14px; height: 14px; border-radius: 4px; border: 3px solid; }
+.legend .l-out { border-style: dashed; border-color: var(--timer); } .legend .l-foe { border-color: var(--bad); } .legend .l-ally { border-color: var(--good); }
+@media (max-width: 520px) { .cell { aspect-ratio: 1 / .86; } .fx { display: none; } .tm { width: 21px; height: 21px; font-size: 12px; } }
+
+.handbar { margin-top: 18px; }
+.status { display: flex; flex-wrap: wrap; gap: 4px 16px; align-items: baseline; font-size: 13px; color: var(--muted); min-height: 22px; margin-bottom: 8px; }
+.status b { color: var(--ink); font-weight: 600; }
+.pips { letter-spacing: .15em; color: var(--you); font-size: 15px; }
+.tip { flex-basis: 100%; color: var(--ink); }
+.hand { display: grid; grid-template-columns: repeat(auto-fill, minmax(112px, 1fr)); gap: 8px; }
+.hcard { position: relative; text-align: left; cursor: pointer; display: flex; flex-direction: column; gap: 4px; min-height: 132px; padding: 8px; border-radius: 10px; border: 1.5px solid var(--you); background: var(--you-soft); color: var(--you-ink); }
+.hcard.sel { box-shadow: 0 0 0 3px var(--you); transform: translateY(-3px); }
+.hcard.poor { opacity: .55; }
+.hhead { display: flex; gap: 6px; align-items: flex-start; }
+.cost { flex: none; display: grid; place-items: center; width: 24px; height: 24px; border-radius: 50%; background: var(--you); color: var(--on-you); font: 700 15px/1 var(--f-display); }
+.hn { font-weight: 600; font-size: 13px; line-height: 1.15; padding-top: 3px; }
+.hmeta { display: flex; align-items: center; gap: 8px; }
+.hmeta .pw { font-size: 30px; }
+.hmeta .tm { position: static; }
+.hfx { font-size: 11px; line-height: 1.25; opacity: .9; }
+.empty-hand { color: var(--muted); font-size: 13px; padding: 14px 0; grid-column: 1 / -1; }
+.actions { display: flex; gap: 10px; margin-top: 14px; }
+
+.side { display: grid; gap: 14px; min-width: 0; }
+.panel { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; }
+.panel h2 { margin: 0; font: 700 22px/1.1 var(--f-display); letter-spacing: .03em; }
+.ih { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+.tag { font: 600 11px var(--f-display); letter-spacing: .12em; text-transform: uppercase; padding: 2px 7px; border-radius: 999px; border: 1.5px solid; }
+.tag.you { color: var(--you); border-color: var(--you); } .tag.foe { color: var(--foe); border-color: var(--foe); }
+.stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 8px 0; }
+.stats div { background: var(--surface-2); border-radius: 8px; padding: 6px 8px; }
+.stats small { display: block; font-size: 11px; color: var(--muted); }
+.stats b { font: 700 22px/1.1 var(--f-display); font-variant-numeric: tabular-nums; }
+.panel p { margin: 6px 0 0; font-size: 13.5px; }
+.panel p.note { color: var(--muted); }
+.panel p.fcast { font-weight: 600; }
+.rules summary { cursor: pointer; font: 700 18px var(--f-display); letter-spacing: .04em; text-transform: uppercase; }
+.rules ol { margin: 8px 0 0; padding-left: 20px; font-size: 13.5px; display: grid; gap: 6px; }
+.log { max-height: 280px; overflow: auto; font-size: 12.5px; }
+.log h2 { font-size: 16px; text-transform: uppercase; letter-spacing: .06em; margin-bottom: 6px; }
+.ln { display: flex; gap: 8px; padding: 3px 0; border-top: 1px solid var(--line); }
+.ln:first-of-type { border-top: 0; }
+.ln i { flex: none; width: 8px; height: 8px; border-radius: 50%; margin-top: 5px; background: var(--muted); }
+.ln.you i { background: var(--you); } .ln.foe i { background: var(--foe); }
+.ln span { color: var(--muted); font-variant-numeric: tabular-nums; flex: none; min-width: 20px; }
+@media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
+</style>
+
+<div class="app">
+  <header class="top">
+    <div>
+      <h1>Countdown Grid</h1>
+      <p class="sub">Two grids, one per side. Every card has a timer. First side to 100 points wins, and the enemy shows its plays before you answer.</p>
+    </div>
+    <div class="ctrls">
+      <label for="diff">Enemy
+        <select id="diff">
+          <option value="-1">Easy (&minus;1 energy)</option>
+          <option value="0" selected>Normal</option>
+          <option value="1">Hard (+1 energy)</option>
+        </select>
+      </label>
+      <label for="showfc"><input type="checkbox" id="showfc" checked> Forecast</label>
+      <label for="fast"><input type="checkbox" id="fast"> Fast resolve</label>
+      <button class="btn ghost" id="newgame" type="button">New game</button>
+    </div>
+  </header>
+
+  <section class="scores" id="scores" aria-label="Scores"></section>
+
+  <div class="stage">
+    <div class="play">
+      <div class="intent" id="intent" aria-live="polite"></div>
+      <div class="grid foe">
+        <div class="gl"><b>Enemy grid</b><span>front row at the bottom, nearest you</span></div>
+        <div class="board" id="board-foe" role="group" aria-label="Enemy grid"></div>
+      </div>
+      <div class="frontline">front line</div>
+      <div class="grid you">
+        <div class="board" id="board-you" role="group" aria-label="Your grid"></div>
+        <div class="gl"><b>Your grid</b><span>front row at the top. A1 is opposite A1.</span></div>
+      </div>
+      <div class="legend" aria-label="Highlight legend">
+        <span>Hover a cell, or an empty cell with a card selected:</span>
+        <span><i class="l-out"></i>cells it affects</span>
+        <span><i class="l-foe"></i>enemy cards that affect it</span>
+        <span><i class="l-ally"></i>friendly cards that affect it</span>
+      </div>
+      <div class="handbar">
+        <div class="status" id="status" aria-live="polite"></div>
+        <div class="hand" id="hand" role="group" aria-label="Your hand"></div>
+        <div class="actions">
+          <button class="btn ghost" id="undo" type="button">Undo last play</button>
+          <button class="btn primary" id="end" type="button">End round</button>
+        </div>
+      </div>
+    </div>
+    <aside class="side">
+      <div class="panel" id="inspect" aria-live="polite"></div>
+      <details class="panel rules" open>
+        <summary>How it works</summary>
+        <ol>
+          <li>You and the enemy each have a 3&times;4 grid. Cells share labels, so your A1 is opposite the enemy's A1. Row 1 is each side's front row.</li>
+          <li>Each round you get energy equal to the round number (max 6) and draw a card. Pick a card, then an empty cell on your grid.</li>
+          <li>The enemy's plays are shown first as dashed ghost cards on its grid, and the forecast shows what will happen if you end the round now.</li>
+          <li>Every card has a timer. At the end of each round all timers drop by 1. At 0 the effect fires, then the timer resets. Cards fire in the order they were placed.</li>
+          <li>Attacks hit the opposite card, the opposite row or column, or the strongest card. Targets are picked fresh each tick, after the enemy's plays land and before any effect fires, so they never shift mid-tick. A card at 0 power is destroyed, and a destroyed card never fires.</li>
+          <li>After effects, each side scores the total power on its own grid. First to 100 wins.</li>
+        </ol>
+      </details>
+      <div class="panel log" id="log"></div>
+    </aside>
+  </div>
+</div>
+
+<script>
+/*CORE*/
+/*UI*/
+</script>
