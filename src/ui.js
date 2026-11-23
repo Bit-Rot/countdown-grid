@@ -24,15 +24,13 @@
   const sleep = ms => new Promise(r => setTimeout(r, ms));
 
   let G = null;
-  const ui = { sel: null, inspect: null, flash: {}, busy: false, gain: null, fast: false, showFc: true, deckYou: 'starter', deckFoe: 'starter', tip: '', fc: null, hover: null, armed: null };
+  // modal: null | {k:'cell', side, i} | {k:'hand', uid} | {k:'help'} | {k:'over'}
+  const ui = { sel: null, flash: {}, busy: false, gain: null, tip: '', fc: null, hover: null, armed: null, deckYou: 'starter', deckFoe: 'starter', modal: null };
 
   function start() {
     G = Core.newGame(Math.random, { deckIds: { you: ui.deckYou, foe: ui.deckFoe } });
-    $('#gl-foe').textContent = 'Enemy grid \u00b7 ' + Core.deckById(ui.deckFoe).name;
-    $('#gl-you').textContent = 'Your grid \u00b7 ' + Core.deckById(ui.deckYou).name;
     Core.startRound(G);
-    Object.assign(ui, { sel: null, inspect: null, flash: {}, busy: false, gain: null, tip: '', fc: null, hover: null, armed: null });
-    renderLib();
+    Object.assign(ui, { sel: null, flash: {}, busy: false, gain: null, tip: '', fc: null, hover: null, armed: null, modal: null });
     render();
   }
 
@@ -45,7 +43,7 @@
     const cells = document.querySelectorAll('.cell');
     const h = ui.hover;
     let out = null, inn = null, srcKey = null, placing = null, label = '';
-    if (h && !ui.busy && !G.over) {
+    if (h && !ui.busy && !G.over && !ui.modal) {
       srcKey = h.side + ':' + h.i;
       const c = G.boards[h.side][h.i];
       const gh = h.side === 'foe' && !c ? ghostAt(h.i) : null;
@@ -86,36 +84,19 @@
   function clearHover() { ui.hover = null; applyHl(); }
 
   // ---------- rendering ----------
-  function renderScores() {
-    const row = (side, label) => {
+  // score badge: the enemy's score (red) over yours (blue), each as "score / 100" plus the forecast gain for this round
+  function renderHud() {
+    const row = (side, name) => {
       const s = G.side[side];
-      const g = ui.gain ? ui.gain[side] : 0;
       let extra = '';
-      if (ui.fc) extra = `<em class="proj" title="Forecast for this round">+${ui.fc.gain[side]} forecast</em>`;
-      else if (g) extra = `<em>+${g}</em>`;
-      return `<div class="srow ${side}"><div class="slabel">${label}</div>
-        <div class="bar" role="progressbar" aria-label="${label} score" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${Math.min(100, s.score)}"><i style="width:${Math.min(100, s.score)}%"></i></div>
-        <div class="snum"><b>${s.score}</b><span>/ 100</span>${extra}</div></div>`;
+      if (ui.fc) extra = `<em>+${ui.fc.gain[side]}</em>`;
+      else if (ui.gain && ui.gain[side]) extra = `<em class="got">+${ui.gain[side]}</em>`;
+      const fc = ui.fc ? `, forecast plus ${ui.fc.gain[side]}` : '';
+      return `<div class="sc ${side}" aria-label="${name} score ${s.score} of 100${fc}"><b>${s.score}</b><span>/100</span>${extra}</div>`;
     };
-    $('#scores').innerHTML = row('foe', 'Enemy') + row('you', 'You');
-  }
-
-  function renderIntent() {
-    const el = $('#intent');
-    if (G.over) {
-      const w = G.over.winner;
-      const txt = w === 'you' ? 'You win' : w === 'foe' ? 'The enemy wins' : 'Draw';
-      el.innerHTML = `<div class="verdict ${w}"><div><strong>${txt}</strong><span>Final score ${G.side.you.score} to ${G.side.foe.score} after ${G.round} rounds.</span></div><button class="btn primary" id="again" type="button">Play again</button></div>`;
-      return;
-    }
-    const F = G.side.foe;
-    const lead = `<div class="lead"><b>Enemy intends</b> this round (${F.energy} energy, ${F.hand.length} cards in hand)${G.plan.length ? '' : ': nothing to play.'}</div>`;
-    const chips = G.plan.map((p, k) => {
-      const over = G.boards.foe[p.cell] && !p.placed;
-      const verb = Core.isEph(p.card) ? 'cast at' : (over ? 'over' : 'to');
-      return `<button class="chip${p.placed ? ' done' : ''}" type="button" data-plan="${k}"><b>${k + 1}</b>${esc(p.card.name)} <span>${verb} ${cn(p.cell)}</span></button>`;
-    }).join('');
-    el.innerHTML = lead + chips;
+    $('#badge').innerHTML = row('foe', 'Enemy') + row('you', 'Your');
+    $('#end').disabled = ui.busy || G.phase !== 'plan';
+    $('#end').textContent = ui.busy ? 'Resolving…' : 'End round';
   }
 
   function badge(f) {
@@ -201,40 +182,29 @@
       const poor = c.cost > Y.energy;
       const tm = c.timerBase == null ? '' : `<span class="tm" title="Timer (ticks between effects)">${c.timerBase}</span>`;
       return `<button class="hcard${ui.sel === c.uid ? ' sel' : ''}${poor ? ' poor' : ''}" type="button" data-hand="${c.uid}" aria-pressed="${ui.sel === c.uid}">
-        <span class="hart art-box${artCls(c)}" ${artAttrs(c)}><span class="cost" title="Energy cost">${c.cost}</span></span>
+        <span class="hart art-box${artCls(c)}" ${artAttrs(c)}><span class="cost" title="Energy cost">${c.cost}</span><span class="info" role="button" tabindex="0" data-info="${c.uid}" aria-label="Card details for ${esc(c.name)}" title="Card details">i</span></span>
         <span class="hbody"><span class="hn">${esc(c.name)}</span>
         <span class="hmeta"><span class="pw">${pwText(c)}</span>${tm}</span>
         <span class="hfx">${esc(Core.cardText(c))}</span></span></button>`;
     }).join('');
   }
 
-  function inspectModel() {
-    const t = ui.inspect;
-    if (!t) return null;
-    if (t.k === 'cell') {
-      const c = G.boards[t.side][t.i];
-      if (c) return { card: c, where: cn(t.i), kind: 'board' };
-      const p = t.side === 'foe' ? ghostAt(t.i) : null;
-      if (p) return { card: p.card, where: cn(t.i), kind: 'ghost' };
+  // ---------- modal: card view, help, game over ----------
+  function cardModel(m) {
+    if (m.k === 'cell') {
+      const c = G.boards[m.side][m.i];
+      if (c) return { card: c, where: cn(m.i), kind: 'board' };
+      const p = m.side === 'foe' ? ghostAt(m.i) : null;
+      if (p) return { card: p.card, where: cn(m.i), kind: 'ghost' };
       return null;
     }
-    if (t.k === 'hand') {
-      const c = G.side.you.hand.find(h => h.uid === t.uid);
+    if (m.k === 'hand') {
+      const c = G.side.you.hand.find(h => h.uid === m.uid);
       return c ? { card: c, kind: 'hand' } : null;
-    }
-    if (t.k === 'plan') {
-      const p = G.plan[t.i];
-      return p ? { card: p.card, where: cn(p.cell), kind: 'ghost' } : null;
     }
     return null;
   }
-  function renderInspect() {
-    const el = $('#inspect');
-    const m = inspectModel();
-    if (!m) {
-      el.innerHTML = `<h2>Inspector</h2><p class="note">Hover or tap any card, ghost or chip to read what it does and when it fires. The board also marks the cells it affects (amber), the enemy cards that affect it (red) and the friendly cards that affect it (green).</p>`;
-      return;
-    }
+  function cardView(m) {
     const c = m.card, owner = c.owner, eph = Core.isEph(c);
     const timer = c.timerBase == null ? 'None' : (m.kind === 'board' ? `${c.timer} / ${c.timerBase}` : `${c.timerBase}`);
     let when = '';
@@ -244,8 +214,8 @@
     else when = `If placed this round, it first fires at the end of round ${G.round + c.timerBase - 1}.`;
     if (Core.hasKw(c, 'haste') && !eph) when = 'It also fires the moment it is placed. ' + when;
     let note = '';
-    if (m.kind === 'ghost') note = `<p class="note">The enemy intends to ${eph ? 'cast' : 'play'} this at ${m.where}. You can't block it, so use the forecast to see what it will do and arrange your own cards around it.</p>`;
-    if (m.kind === 'hand') note = `<p class="note">Select it, then choose ${eph ? 'a cell to cast it on' : 'a cell on your grid. Placing on an occupied cell replaces that card'}. Cost ${c.cost} of your ${G.side.you.energy} energy.</p>`;
+    if (m.kind === 'ghost') note = `<p class="note">The enemy intends to ${eph ? 'cast' : 'play'} this at ${m.where}. You can't block it, so see what it will do and arrange your own cards around it.</p>`;
+    if (m.kind === 'hand') note = `<p class="note">Close this, select the card, then choose ${eph ? 'a cell to cast it on' : 'a cell on your grid. Placing on an occupied cell replaces that card'}. Cost ${c.cost} of your ${G.side.you.energy} energy.</p>`;
     let fcast = '';
     const f = ui.fc && ui.fc.byUid[c.uid];
     if (f) {
@@ -264,19 +234,26 @@
     if (c.silenced > 0) live.push(`Silenced for ${c.silenced} more tick${c.silenced === 1 ? '' : 's'}: its text is off.`);
     if (c.shield && !Core.hasKw(c, 'shield')) live.push('Has a Shield from another card.');
     const help = Core.keywordHelp(c).map(t => `<li>${esc(t)}</li>`).join('');
-    el.innerHTML = `<div class="iart art-box ${owner}${artCls(c)}" ${artAttrs(c)} role="img" aria-label="Art for ${esc(c.name)}"></div>
-      <div class="ih"><span class="tag ${owner}">${owner === 'you' ? 'You' : 'Enemy'}</span><h2>${esc(c.name)}</h2></div>
-      <div class="stats"><div><small>Cost</small><b>${c.cost}</b></div><div><small>Power</small><b>${pwText(c)}</b></div><div><small>Timer</small><b>${timer}</b></div></div>
-      <p>${esc(Core.cardText(c))}</p><p class="note">${esc(when)}</p>${live.map(t => `<p class="fcast">${esc(t)}</p>`).join('')}${fcast}${note}${help ? `<ul class="kwhelp">${help}</ul>` : ''}`;
+    return `<div class="cardview ${owner}" role="dialog" aria-modal="true" aria-label="${esc(c.name)}">
+      <div class="cv-art art-box${artCls(c)}" ${artAttrs(c)}><span class="cv-cost" title="Energy cost">${c.cost}</span></div>
+      <div class="cv-head"><h2>${esc(c.name)}</h2><span class="tag ${owner}">${owner === 'you' ? 'You' : 'Enemy'}</span></div>
+      <div class="cv-stats"><div><small>Cost</small><b>${c.cost}</b></div><div><small>Power</small><b>${pwText(c)}</b></div><div><small>Timer</small><b>${timer}</b></div></div>
+      <div class="cv-text"><p>${esc(Core.cardText(c))}</p><p class="note">${esc(when)}</p>${live.map(t => `<p class="fcast">${esc(t)}</p>`).join('')}${fcast}${note}${help ? `<ul class="kwhelp">${help}</ul>` : ''}</div>
+    </div>`;
   }
 
-  function renderLog() {
-    const rows = G.log.slice(-40).reverse().map(l => `<div class="ln ${l.side}"><i></i><span>R${l.round}</span><div>${esc(l.text)}</div></div>`).join('');
-    $('#log').innerHTML = `<h2>Log</h2>${rows}`;
-  }
-
-  // card library: both decks in this game, then every card grouped by mechanic (new cards are numbered 1-24)
-  function renderLib() {
+  const RULES = [
+    'You and the enemy each have a 3×4 grid. Cells share labels, so your A1 is opposite the enemy’s A1. Row 1 is each side’s front row. The enemy’s grid is red and yours is blue.',
+    'Each round you get energy equal to the round number (max 6) and draw a card. Pick a card, then a cell on your grid.',
+    'The enemy’s plays are shown first as dashed ghost cards on its grid. The small badges on cards show what will happen if you end the round now, and the numbers beside each score are that side’s gain for this round.',
+    'Every card has a timer. At the end of each round all timers drop by 1. At 0 the effect fires, then the timer resets. Cards fire in the order they were placed.',
+    'Attacks hit the opposite card, the opposite row or column, or the strongest card. Targets are picked fresh each tick, after the enemy’s plays land and before any effect fires, so they never shift mid-tick. A card at 0 power is destroyed, and a destroyed card never fires.',
+    'After effects, each side scores the total power on its own grid. First to 100 wins.',
+    'You can place a card on any cell of your grid. Placing on an occupied cell replaces that card, which goes to your discard.',
+    'Each side plays the deck chosen in its dropdown. Every deck is 12 different cards.',
+    'Click a card on the board, or the i on a card in your hand, to read it. Right-click works on any card too.',
+  ];
+  function helpHTML() {
     const mine = Core.deckById(ui.deckYou), theirs = Core.deckById(ui.deckFoe);
     const inYou = new Set(mine.cards), inFoe = new Set(theirs.cards);
     const entry = d => {
@@ -284,25 +261,56 @@
       const tags = (inYou.has(d.id) ? ' <i class="indeck">your deck</i>' : '') + (inFoe.has(d.id) ? ' <i class="indeck foe">enemy deck</i>' : '');
       return `<li><b>${d.num ? '#' + d.num + ' ' : ''}${esc(d.name)}</b>${tags} <span class="st">${stats}</span><br><span class="tx">${esc(Core.cardText(d))}</span></li>`;
     };
-    const deckList = (deck) => `<h3>${esc(deck.name)}</h3><p class="dtheme">${esc(deck.theme)}</p><ul>${deck.cards.map(id => entry(Core.POOL.find(d => d.id === id))).join('')}</ul>`;
+    const deckList = deck => `<h4>${esc(deck.name)}</h4><p class="dtheme">${esc(deck.theme)}</p><ul>${deck.cards.map(id => entry(Core.POOL.find(d => d.id === id))).join('')}</ul>`;
     const groups = [['Starter 12', Core.CLASSIC], ['Shield', Core.NEW.slice(0, 3)], ['Ephemeral', Core.NEW.slice(3, 6)], ['Haste', Core.NEW.slice(6, 9)],
       ['Destroy', Core.NEW.slice(9, 12)], ['Glass', Core.NEW.slice(12, 15)], ['Consume', Core.NEW.slice(15, 18)], ['Edible', Core.NEW.slice(18, 21)], ['Silence', Core.NEW.slice(21, 24)]];
-    $('#kwlist').innerHTML = Object.values(Core.KW_HELP).map(t => '<li>' + esc(t) + '</li>').join('');
-    $('#libbody').innerHTML =
-      `<h3 class="sect">Your deck</h3>` + deckList(mine) +
-      (theirs.id === mine.id ? '' : `<h3 class="sect">Enemy deck</h3>` + deckList(theirs)) +
-      `<h3 class="sect">All cards</h3>` + groups.map(([name, list]) => `<h3>${name}</h3><ul>${list.map(entry).join('')}</ul>`).join('');
+    return `<div class="sheet" role="dialog" aria-modal="true" aria-label="Help">
+      <button class="btn ghost sm x" type="button" data-close>Close</button>
+      <h2>How it works</h2>
+      <ol>${RULES.map(t => `<li>${esc(t)}</li>`).join('')}</ol>
+      <h3>Highlights</h3>
+      <ul class="plain">
+        <li><span class="swatch s-out"></span>Hover a cell (or an empty cell with a card selected) to outline the cells it affects.</li>
+        <li><span class="swatch s-foe"></span>Red outline: enemy cards that affect that cell.</li>
+        <li><span class="swatch s-ally"></span>Green outline: friendly cards that affect that cell.</li>
+      </ul>
+      <h3>Keywords</h3>
+      <ul class="plain">${Object.values(Core.KW_HELP).map(t => `<li>${esc(t)}</li>`).join('')}</ul>
+      <h3>Card library</h3>
+      <div class="libbody">
+        <h4 class="sect">Your deck</h4>${deckList(mine)}
+        ${theirs.id === mine.id ? '' : `<h4 class="sect">Enemy deck</h4>${deckList(theirs)}`}
+        <h4 class="sect">All cards</h4>${groups.map(([name, list]) => `<h4>${name}</h4><ul>${list.map(entry).join('')}</ul>`).join('')}
+      </div>
+    </div>`;
+  }
+  function overHTML() {
+    const w = G.over ? G.over.winner : 'draw';
+    const txt = w === 'you' ? 'You win' : w === 'foe' ? 'Enemy wins' : 'Draw';
+    return `<div class="overview ${w}" role="dialog" aria-modal="true" aria-label="Game over">
+      <h2>${txt}</h2><p>Final score ${G.side.you.score} to ${G.side.foe.score} after ${G.round} rounds.</p>
+      <button class="btn primary" id="again" type="button">Play again</button></div>`;
   }
 
-  function renderControls() {
-    $('#end').disabled = ui.busy || G.phase !== 'plan';
-    $('#end').textContent = ui.busy ? 'Resolving…' : 'End round';
-    $('#undo').disabled = ui.busy || G.phase !== 'plan' || !G.undo.length;
+  // The help sheet is only built when it opens, so its scroll position survives re-renders.
+  function renderModal(force) {
+    const el = $('#modal');
+    const m = ui.modal;
+    if (!m) { el.hidden = true; el.innerHTML = ''; return; }
+    if (m.k === 'help' && !force && !el.hidden) return;
+    let html = '';
+    if (m.k === 'help') html = helpHTML();
+    else if (m.k === 'over') html = overHTML();
+    else { const cm = cardModel(m); if (!cm) { ui.modal = null; el.hidden = true; el.innerHTML = ''; return; } html = cardView(cm); }
+    el.innerHTML = html;
+    el.hidden = false;
   }
+  function openModal(m) { ui.modal = m; renderModal(true); applyHl(); }
+  function closeModal() { ui.modal = null; renderModal(); applyHl(); }
 
   function render() {
-    ui.fc = (ui.showFc && G.phase === 'plan' && !ui.busy) ? Core.forecast(G) : null;
-    renderScores(); renderIntent(); renderBoards(); renderStatus(); renderHand(); renderInspect(); renderLog(); renderControls();
+    ui.fc = (G.phase === 'plan' && !ui.busy) ? Core.forecast(G) : null;
+    renderHud(); renderBoards(); renderStatus(); renderHand(); renderModal();
     applyHl();
   }
 
@@ -334,7 +342,6 @@
       const r = Core.playCard(G, ui.sel, i);
       if (r) {
         ui.sel = null;
-        ui.inspect = G.boards.you[i] ? { k: 'cell', side, i } : null;
         ui.flash = {};
         addFlash(ui.flash, r.marks);
         render();
@@ -342,13 +349,12 @@
         return;
       }
     }
-    if (G.boards[side][i] || (side === 'foe' && ghostAt(i))) { ui.inspect = { k: 'cell', side, i }; renderInspect(); }
+    if (G.boards[side][i] || (side === 'foe' && ghostAt(i))) { openModal({ k: 'cell', side, i }); return; }
     applyHl();
   }
   function onHand(uid) {
     const c = G.side.you.hand.find(h => h.uid === uid);
     if (!c) return;
-    ui.inspect = { k: 'hand', uid };
     ui.armed = null;
     if (G.phase === 'plan' && !ui.busy) {
       if (c.cost > G.side.you.energy) { ui.sel = null; ui.tip = `${c.name} costs ${c.cost} energy and you have ${G.side.you.energy}.`; }
@@ -359,55 +365,56 @@
 
   async function endRound() {
     if (ui.busy || G.phase !== 'plan') return;
-    ui.busy = true; ui.sel = null; ui.gain = null; ui.tip = ''; ui.hover = null; ui.armed = null;
+    ui.busy = true; ui.sel = null; ui.gain = null; ui.tip = ''; ui.hover = null; ui.armed = null; ui.modal = null;
     render();
     for (const ev of Core.resolveRound(G)) {
       ui.flash = {};
       addFlash(ui.flash, ev.marks);
       if (ev.gain) ui.gain = ev.gain;
       render();
-      if (ev.ms) await sleep(ui.fast ? 90 : DELAY[ev.ms] || 600);
+      if (ev.ms) await sleep(DELAY[ev.ms] || 600);
     }
     ui.flash = {};
     ui.busy = false;
+    if (G.over) ui.modal = { k: 'over' };
     render();
   }
 
   for (const side of ['foe', 'you']) {
     const b = $('#board-' + side);
     b.addEventListener('click', e => { const el = e.target.closest('[data-cell]'); if (el) onCell(side, +el.dataset.cell); });
+    b.addEventListener('contextmenu', e => {
+      const el = e.target.closest('[data-cell]'); if (!el) return;
+      const i = +el.dataset.cell;
+      if (G.boards[side][i] || (side === 'foe' && ghostAt(i))) { e.preventDefault(); openModal({ k: 'cell', side, i }); }
+    });
     for (const ev of ['mouseover', 'focusin']) {
-      b.addEventListener(ev, e => {
-        const el = e.target.closest('[data-cell]'); if (!el) return;
-        const i = +el.dataset.cell;
-        if (G.boards[side][i] || (side === 'foe' && ghostAt(i))) { ui.inspect = { k: 'cell', side, i }; renderInspect(); }
-        setHover(side, i);
-      });
+      b.addEventListener(ev, e => { const el = e.target.closest('[data-cell]'); if (el) setHover(side, +el.dataset.cell); });
     }
-    for (const ev of ['mouseleave']) b.addEventListener(ev, clearHover);
+    b.addEventListener('mouseleave', clearHover);
   }
-  $('#hand').addEventListener('click', e => { const b = e.target.closest('[data-hand]'); if (b) onHand(+b.dataset.hand); });
-  $('#intent').addEventListener('click', e => {
-    if (e.target.closest('#again')) { start(); return; }
-    const b = e.target.closest('[data-plan]');
-    if (b) { ui.inspect = { k: 'plan', i: +b.dataset.plan }; renderInspect(); }
+  $('#hand').addEventListener('click', e => {
+    const info = e.target.closest('[data-info]');
+    if (info) { e.stopPropagation(); openModal({ k: 'hand', uid: +info.dataset.info }); return; }
+    const b = e.target.closest('[data-hand]'); if (b) onHand(+b.dataset.hand);
   });
-  for (const ev of ['mouseover', 'focusin']) {
-    $('#hand').addEventListener(ev, e => {
-      const b = e.target.closest('[data-hand]'); if (!b) return;
-      ui.inspect = { k: 'hand', uid: +b.dataset.hand }; renderInspect();
-    });
-    $('#intent').addEventListener(ev, e => {
-      const b = e.target.closest('[data-plan]'); if (!b) return;
-      const k = +b.dataset.plan;
-      ui.inspect = { k: 'plan', i: k }; renderInspect();
-      if (G.plan[k] && !G.plan[k].placed) setHover('foe', G.plan[k].cell);
-    });
-  }
-  for (const ev of ['mouseleave']) $('#intent').addEventListener(ev, clearHover);
+  $('#hand').addEventListener('keydown', e => {
+    const info = e.target.closest('[data-info]');
+    if (info && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); e.stopPropagation(); openModal({ k: 'hand', uid: +info.dataset.info }); }
+  });
+  $('#hand').addEventListener('contextmenu', e => {
+    const b = e.target.closest('[data-hand]'); if (b) { e.preventDefault(); openModal({ k: 'hand', uid: +b.dataset.hand }); }
+  });
+  // modal: click off the card (on the dimmed background) or press Escape to close
+  $('#modal').addEventListener('click', e => {
+    if (e.target.id === 'again') { start(); return; }
+    if (e.target === $('#modal') || e.target.closest('[data-close]')) closeModal();
+  });
+  document.addEventListener('keydown', e => { if (e.key === 'Escape' && ui.modal) closeModal(); });
+
   $('#end').addEventListener('click', endRound);
-  $('#undo').addEventListener('click', () => { if (Core.undoPlay(G)) { ui.sel = null; ui.tip = ''; render(); } });
   $('#newgame').addEventListener('click', start);
+  $('#help').addEventListener('click', () => openModal({ k: 'help' }));
   // deck pickers: Starter first, then the themed decks. Changing either one starts a new game.
   const fillDecks = () => {
     for (const [sel, key] of [['#deck-foe', 'deckFoe'], ['#deck-you', 'deckYou']]) {
@@ -424,8 +431,6 @@
     fillDecks();
     start();
   });
-  $('#fast').addEventListener('change', e => { ui.fast = e.target.checked; });
-  $('#showfc').addEventListener('change', e => { ui.showFc = e.target.checked; render(); });
 
   start();
 })();

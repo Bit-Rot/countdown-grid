@@ -9,11 +9,11 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Inter:wght@400;500;600&display=swap">
 <style>
-/* Layout: score meters on top; the enemy's 3x4 grid above the front line, your 3x4 grid below it, so opposite cells share a label; hand under your grid; inspector and log in a side column. */
+/* Layout: a slim control bar, then the playing field (enemy grid in red above the front line, your grid in blue below it, so opposite cells share a label) with your hand underneath. The score badge and End round button hang off the top-right of the field. Details open in a modal. */
 :root {
   --bg: #e9edf3; --surface: #ffffff; --surface-2: #f2f5f9; --ink: #131822; --muted: #566074; --line: #cdd5e1;
-  --you: #1f5ad0; --you-soft: #dde8fc; --you-ink: #123b8f; --you-wash: rgba(31, 90, 208, .09); --on-you: #ffffff;
-  --foe: #c53a2f; --foe-soft: #fbe0dc; --foe-ink: #8e2118; --foe-wash: rgba(197, 58, 47, .09);
+  --you: #1f5ad0; --you-soft: #dde8fc; --you-ink: #123b8f; --you-wash: rgba(31, 90, 208, .09); --you-line: rgba(31, 90, 208, .5); --on-you: #ffffff;
+  --foe: #c53a2f; --foe-soft: #fbe0dc; --foe-ink: #8e2118; --foe-wash: rgba(197, 58, 47, .09); --foe-line: rgba(197, 58, 47, .5);
   --timer: #b36b00; --on-timer: #ffffff; --good: #1b8a4b; --bad: #c53a2f;
   --f-display: 'Barlow Condensed', 'Arial Narrow', system-ui, sans-serif;
   --f-body: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
@@ -21,78 +21,70 @@
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
     --bg: #0e1219; --surface: #161c27; --surface-2: #1d2533; --ink: #e7ebf2; --muted: #9aa5b8; --line: #2b3547;
-    --you: #6c9bff; --you-soft: #1a2b52; --you-ink: #c3d6ff; --you-wash: rgba(108, 155, 255, .12); --on-you: #0b1220;
-    --foe: #ff6f63; --foe-soft: #47201d; --foe-ink: #ffc9c3; --foe-wash: rgba(255, 111, 99, .12);
+    --you: #6c9bff; --you-soft: #1a2b52; --you-ink: #c3d6ff; --you-wash: rgba(108, 155, 255, .12); --you-line: rgba(108, 155, 255, .5); --on-you: #0b1220;
+    --foe: #ff6f63; --foe-soft: #47201d; --foe-ink: #ffc9c3; --foe-wash: rgba(255, 111, 99, .12); --foe-line: rgba(255, 111, 99, .5);
     --timer: #f2b24c; --on-timer: #1a1203; --good: #4fd18b; --bad: #ff6f63;
     color-scheme: dark;
   }
 }
 :root[data-theme="dark"] {
   --bg: #0e1219; --surface: #161c27; --surface-2: #1d2533; --ink: #e7ebf2; --muted: #9aa5b8; --line: #2b3547;
-  --you: #6c9bff; --you-soft: #1a2b52; --you-ink: #c3d6ff; --you-wash: rgba(108, 155, 255, .12); --on-you: #0b1220;
-  --foe: #ff6f63; --foe-soft: #47201d; --foe-ink: #ffc9c3; --foe-wash: rgba(255, 111, 99, .12);
+  --you: #6c9bff; --you-soft: #1a2b52; --you-ink: #c3d6ff; --you-wash: rgba(108, 155, 255, .12); --you-line: rgba(108, 155, 255, .5); --on-you: #0b1220;
+  --foe: #ff6f63; --foe-soft: #47201d; --foe-ink: #ffc9c3; --foe-wash: rgba(255, 111, 99, .12); --foe-line: rgba(255, 111, 99, .5);
   --timer: #f2b24c; --on-timer: #1a1203; --good: #4fd18b; --bad: #ff6f63;
   color-scheme: dark;
 }
 * { box-sizing: border-box; }
 body { background: var(--bg); color: var(--ink); font-family: var(--f-body); font-size: 15px; line-height: 1.4; }
 button { font: inherit; color: inherit; }
-button:focus-visible, select:focus-visible, input:focus-visible, summary:focus-visible { outline: 3px solid var(--ink); outline-offset: 2px; }
+button:focus-visible, select:focus-visible, summary:focus-visible, [role="button"]:focus-visible { outline: 3px solid var(--ink); outline-offset: 2px; }
 
-.app { max-width: 1120px; margin: 0 auto; padding-block: 20px 48px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
-.top { display: flex; flex-wrap: wrap; gap: 12px 24px; align-items: flex-end; justify-content: space-between; margin-bottom: 14px; }
-.top h1 { margin: 0; font: 700 36px/1 var(--f-display); letter-spacing: .05em; text-transform: uppercase; }
-.top .sub { margin: 4px 0 0; color: var(--muted); font-size: 13px; max-width: 52ch; }
-.ctrls { display: flex; flex-wrap: wrap; gap: 10px 14px; align-items: center; font-size: 13px; color: var(--muted); }
+.app { max-width: 1120px; margin: 0 auto; padding-block: 12px 40px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+.ctrls { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center; font-size: 13px; color: var(--muted); margin-bottom: 10px; }
 .ctrls label { display: inline-flex; gap: 6px; align-items: center; }
-select { font: inherit; color: var(--ink); background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 6px 8px; }
+select { font: inherit; color: var(--ink); background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 5px 8px; max-width: 100%; }
+#deck-foe { border-color: var(--foe-line); } #deck-you { border-color: var(--you-line); }
 
-.btn { border: 1px solid var(--line); background: var(--surface); border-radius: 9px; padding: 9px 14px; font-weight: 600; cursor: pointer; }
+.btn { border: 1px solid var(--line); background: var(--surface); border-radius: 9px; padding: 8px 13px; font-weight: 600; cursor: pointer; }
+.btn.sm { padding: 5px 11px; font-size: 13px; }
 .btn:disabled { opacity: .45; cursor: not-allowed; }
 .btn.primary { background: var(--you); border-color: var(--you); color: var(--on-you); }
 .btn.ghost:hover:not(:disabled) { background: var(--surface-2); }
 
-.scores { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; display: grid; gap: 10px; }
-.srow { display: grid; grid-template-columns: 56px minmax(0, 1fr) auto; gap: 12px; align-items: center; }
-.slabel { font: 600 14px var(--f-display); letter-spacing: .1em; text-transform: uppercase; }
-.srow.you .slabel { color: var(--you); } .srow.foe .slabel { color: var(--foe); }
-.bar { height: 14px; border-radius: 999px; background: var(--surface-2); border: 1px solid var(--line); overflow: hidden; }
-.bar i { display: block; height: 100%; width: 0; transition: width .5s ease; }
-.srow.you .bar i { background: var(--you); } .srow.foe .bar i { background: var(--foe); }
-.snum { min-width: 150px; text-align: right; font-variant-numeric: tabular-nums; }
-.snum b { font: 700 28px/1 var(--f-display); }
-.snum span { color: var(--muted); font-size: 13px; margin-left: 2px; }
-.snum em { font-style: normal; font-weight: 600; font-size: 13px; margin-left: 8px; color: var(--good); }
-.snum em.proj { color: var(--muted); font-weight: 500; }
-
-.stage { display: grid; gap: 20px; margin-top: 16px; grid-template-columns: minmax(0, 1fr); align-items: start; }
-@media (min-width: 920px) { .stage { grid-template-columns: minmax(0, 1fr) 320px; } }
+.stage { position: relative; }
 .play { min-width: 0; max-width: 580px; }
 
-.intent { min-height: 58px; display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; }
-.intent .lead { font-size: 13px; color: var(--muted); flex-basis: 100%; }
-.intent .lead b { color: var(--foe); font-weight: 600; }
-.chip { display: inline-flex; gap: 7px; align-items: center; border: 1.5px dashed var(--foe); background: var(--foe-wash); color: var(--foe-ink); border-radius: 999px; padding: 4px 11px 4px 5px; font-size: 13px; font-weight: 500; cursor: pointer; }
-.chip b { display: grid; place-items: center; width: 20px; height: 20px; border-radius: 50%; background: var(--foe); color: var(--surface); font: 700 12px var(--f-display); }
-.chip span { opacity: .8; }
-.chip.done { border-style: solid; opacity: .6; }
-.verdict { width: 100%; display: flex; flex-wrap: wrap; gap: 12px; justify-content: space-between; align-items: center; border-radius: 12px; padding: 12px 16px; border: 1.5px solid var(--line); background: var(--surface); }
-.verdict strong { display: block; font: 700 28px/1.1 var(--f-display); letter-spacing: .04em; text-transform: uppercase; }
-.verdict span { color: var(--muted); font-size: 13px; }
-.verdict.you { border-color: var(--you); background: var(--you-wash); } .verdict.foe { border-color: var(--foe); background: var(--foe-wash); }
+/* score badge + End round, hanging off the top-right corner of the field */
+.hud { position: absolute; top: 0; right: 0; z-index: 5; width: 128px; display: grid; gap: 6px; }
+.badge { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 6px 8px; display: grid; gap: 4px; box-shadow: 0 2px 10px rgba(0, 0, 0, .18); }
+.sc { display: flex; align-items: baseline; gap: 3px; padding-left: 6px; border-left: 4px solid; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.sc.foe { border-color: var(--foe); } .sc.you { border-color: var(--you); }
+.sc b { font: 700 26px/1 var(--f-display); }
+.sc.foe b { color: var(--foe); } .sc.you b { color: var(--you); }
+.sc span { color: var(--muted); font-size: 11px; }
+.sc em { font-style: normal; font-weight: 600; font-size: 12px; margin-left: auto; color: var(--muted); }
+.sc em.got { color: var(--good); }
+#end { width: 100%; box-shadow: 0 2px 10px rgba(0, 0, 0, .18); }
+@media (max-width: 760px) {
+  /* on narrow screens there is no free space beside the field, so the badge becomes a slim row above it instead of covering cards */
+  .hud { position: static; width: auto; display: flex; gap: 8px; align-items: stretch; margin-bottom: 8px; }
+  .badge { flex: 1; grid-template-columns: 1fr 1fr; gap: 8px; box-shadow: none; }
+  #end { width: auto; flex: none; padding-inline: 18px; box-shadow: none; }
+}
 
-.gl { display: flex; flex-wrap: wrap; gap: 2px 10px; align-items: baseline; font-size: 12px; color: var(--muted); margin: 6px 0; }
-.gl b { font: 700 15px var(--f-display); letter-spacing: .1em; text-transform: uppercase; }
-.grid.foe .gl b { color: var(--foe); } .grid.you .gl b { color: var(--you); }
-.frontline { display: flex; align-items: center; gap: 10px; margin: 10px 0; font: 600 11px var(--f-display); letter-spacing: .16em; text-transform: uppercase; color: var(--muted); }
+.frontline { display: flex; align-items: center; gap: 10px; margin: 8px 0; font: 600 11px var(--f-display); letter-spacing: .16em; text-transform: uppercase; color: var(--muted); }
 .frontline::before, .frontline::after { content: ""; flex: 1; border-top: 2px dotted var(--line); }
 
 .board { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
 .cell { position: relative; aspect-ratio: 4 / 3; min-width: 0; padding: 0; text-align: left; cursor: pointer; overflow: hidden; border-radius: 10px; border: 1.5px solid var(--line); background: var(--surface-2); }
-.cell.empty { border-style: dashed; background: transparent; display: grid; place-items: center; }
-.cell .co { font: 600 12px var(--f-display); letter-spacing: .1em; color: var(--muted); }
-.cell.target { border-color: var(--you); border-style: dashed; background: var(--you-wash); }
-.cell.target:hover { background: var(--you-soft); }
+.cell.empty { border-style: dashed; display: grid; place-items: center; }
+.cell .co { font: 600 12px var(--f-display); letter-spacing: .1em; }
+/* the enemy's grid is red and yours is blue */
+.grid.foe .cell.empty { border-color: var(--foe-line); background: var(--foe-wash); }
+.grid.you .cell.empty { border-color: var(--you-line); background: var(--you-wash); }
+.grid.foe .cell.empty .co { color: var(--foe); opacity: .7; } .grid.you .cell.empty .co { color: var(--you); opacity: .7; }
+.cell.target { border-style: solid; border-color: var(--you); background: var(--you-soft); }
+.cell.target:hover { background: var(--you-wash); }
 .cell.card, .cell.ghost { display: flex; flex-direction: column; justify-content: flex-end; padding: 6px 7px 5px; color: #fff; }
 .cell.you { background: var(--you-soft); border-color: var(--you); }
 .cell.foe { background: var(--foe-soft); border-color: var(--foe); }
@@ -112,8 +104,10 @@ select { font: inherit; color: var(--ink); background: var(--surface); border: 1
 .ovr b { font: 700 10px var(--f-display); letter-spacing: .1em; margin-right: 3px; }
 .cell.covers { outline: 2px dashed var(--you); outline-offset: -4px; }
 .cell.silenced .art { filter: grayscale(1) brightness(.85); }
+.art-box { position: relative; }
 .art-box.ph { background: linear-gradient(145deg, hsl(var(--h) 38% 30%), hsl(var(--h) 46% 14%)); }
 .art-box.ph::before { content: attr(data-ph); position: absolute; inset: 0; display: grid; place-items: center; font: 700 clamp(30px, 7vw, 56px)/1 var(--f-display); letter-spacing: .04em; color: rgba(255, 255, 255, .32); }
+.cell .art { position: absolute; }
 .nm { font-weight: 600; font-size: clamp(10px, 1.5vw, 12.5px); line-height: 1.15; padding-right: 26px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 .fx { font-size: 11px; line-height: 1.15; opacity: .85; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .bot { display: flex; justify-content: space-between; align-items: flex-end; gap: 4px; }
@@ -143,148 +137,108 @@ select { font: inherit; color: var(--ink); background: var(--surface); border: 1
 .cell.hl-ally { box-shadow: inset 0 0 0 3px var(--good); }
 .cell.hl-src { box-shadow: 0 0 0 3px var(--ink); z-index: 3; }
 .cell[data-hl]::after { content: attr(data-hl); position: absolute; left: 50%; bottom: 4px; transform: translateX(-50%); font: 700 10px/1 var(--f-display); letter-spacing: .12em; text-transform: uppercase; padding: 2px 5px; border-radius: 999px; background: var(--ink); color: var(--bg); white-space: nowrap; pointer-events: none; }
-.legend { display: flex; flex-wrap: wrap; gap: 4px 14px; margin: 6px 0 0; font-size: 12px; color: var(--muted); }
-.legend span { display: inline-flex; gap: 6px; align-items: center; }
-.legend i { width: 14px; height: 14px; border-radius: 4px; border: 3px solid; }
-.legend .l-out { border-style: dashed; border-color: var(--timer); } .legend .l-foe { border-color: var(--bad); } .legend .l-ally { border-color: var(--good); }
 @media (max-width: 520px) { .cell { aspect-ratio: 1 / .86; } .fx { display: none; } .cell[data-hl]::after { font-size: 8px; padding: 1px 3px; bottom: 2px; letter-spacing: .06em; } .tm { width: 21px; height: 21px; font-size: 12px; } }
 
-.handbar { margin-top: 18px; }
+.handbar { margin-top: 14px; }
 .status { display: flex; flex-wrap: wrap; gap: 4px 16px; align-items: baseline; font-size: 13px; color: var(--muted); min-height: 22px; margin-bottom: 8px; }
 .status b { color: var(--ink); font-weight: 600; }
 .pips { letter-spacing: .15em; color: var(--you); font-size: 15px; }
 .tip { flex-basis: 100%; color: var(--ink); }
 .hand { display: grid; grid-template-columns: repeat(auto-fill, minmax(112px, 1fr)); gap: 8px; }
 .hcard { position: relative; text-align: left; cursor: pointer; display: flex; flex-direction: column; padding: 0; overflow: hidden; border-radius: 10px; border: 1.5px solid var(--you); background: var(--you-soft); color: var(--you-ink); }
-.hart { position: relative; aspect-ratio: 4 / 3; background-color: #e9e2d0; background-size: cover; background-position: center 18%; border-bottom: 1.5px solid var(--you); }
+.hart { position: relative; aspect-ratio: 16 / 9; background-color: #e9e2d0; background-size: cover; background-position: center 18%; border-bottom: 1.5px solid var(--you); }
 .hart .cost { position: absolute; top: 6px; left: 6px; box-shadow: 0 0 0 2px rgba(255, 255, 255, .9); }
+.hart .info { position: absolute; top: 6px; right: 6px; width: 22px; height: 22px; border-radius: 50%; background: rgba(0, 0, 0, .6); color: #fff; font: 700 14px/22px var(--f-display); text-align: center; cursor: pointer; }
+.hart .info:hover { background: rgba(0, 0, 0, .85); }
 .hbody { display: flex; flex-direction: column; gap: 4px; padding: 6px 8px 8px; }
-.iart { aspect-ratio: 4 / 3; border-radius: 8px; border: 1.5px solid var(--line); background-color: #e9e2d0; background-size: cover; background-position: center 18%; margin-bottom: 10px; }
-.iart.you { border-color: var(--you); } .iart.foe { border-color: var(--foe); }
 .hcard.sel { box-shadow: 0 0 0 3px var(--you); transform: translateY(-3px); }
 .hcard.poor { opacity: .55; }
-.hhead { display: flex; gap: 6px; align-items: flex-start; }
 .cost { flex: none; display: grid; place-items: center; width: 24px; height: 24px; border-radius: 50%; background: var(--you); color: var(--on-you); font: 700 15px/1 var(--f-display); }
 .hn { font-weight: 600; font-size: 13px; line-height: 1.15; padding-top: 3px; }
 .hmeta { display: flex; align-items: center; gap: 8px; }
 .hmeta .pw { font-size: 30px; }
 .hmeta .tm { position: static; }
-.hfx { font-size: 11px; line-height: 1.25; opacity: .9; }
+.hfx { font-size: 11px; line-height: 1.25; opacity: .9; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
 .empty-hand { color: var(--muted); font-size: 13px; padding: 14px 0; grid-column: 1 / -1; }
-.actions { display: flex; gap: 10px; margin-top: 14px; }
 
-.side { display: grid; gap: 14px; min-width: 0; }
-.panel { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; }
-.panel h2 { margin: 0; font: 700 22px/1.1 var(--f-display); letter-spacing: .03em; }
-.ih { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
-.tag { font: 600 11px var(--f-display); letter-spacing: .12em; text-transform: uppercase; padding: 2px 7px; border-radius: 999px; border: 1.5px solid; }
+/* modals: card view, help, game over */
+.modal { position: fixed; inset: 0; z-index: 100; display: grid; place-items: center; background: rgba(4, 7, 12, .72);
+  padding: max(16px, env(safe-area-inset-top, 0px)) max(16px, env(safe-area-inset-right, 0px)) max(16px, env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px)); }
+.cardview { width: 340px; height: 540px; max-width: 100%; max-height: 100%; display: flex; flex-direction: column; overflow: hidden; background: var(--surface); border: 3px solid var(--line); border-radius: 18px; box-shadow: 0 24px 70px rgba(0, 0, 0, .55); }
+.cardview.you { border-color: var(--you); } .cardview.foe { border-color: var(--foe); }
+.cv-art { flex: none; height: 232px; background-color: #e9e2d0; background-size: cover; background-position: center 18%; }
+.cv-cost { position: absolute; top: 10px; left: 10px; z-index: 1; width: 32px; height: 32px; border-radius: 50%; display: grid; place-items: center; background: var(--you); color: var(--on-you); font: 700 20px/1 var(--f-display); box-shadow: 0 0 0 2px rgba(255, 255, 255, .9); }
+.cardview.foe .cv-cost { background: var(--foe); color: #fff; }
+.cv-head { flex: none; display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 10px 14px 4px; }
+.cv-head h2 { margin: 0; font: 700 26px/1.05 var(--f-display); letter-spacing: .03em; }
+.tag { font: 600 11px var(--f-display); letter-spacing: .12em; text-transform: uppercase; padding: 2px 7px; border-radius: 999px; border: 1.5px solid; flex: none; }
 .tag.you { color: var(--you); border-color: var(--you); } .tag.foe { color: var(--foe); border-color: var(--foe); }
-.stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 8px 0; }
-.stats div { background: var(--surface-2); border-radius: 8px; padding: 6px 8px; }
-.stats small { display: block; font-size: 11px; color: var(--muted); }
-.stats b { font: 700 22px/1.1 var(--f-display); font-variant-numeric: tabular-nums; }
-.panel p { margin: 6px 0 0; font-size: 13.5px; }
-.panel p.note { color: var(--muted); }
-.panel p.fcast { font-weight: 600; }
-.rules summary { cursor: pointer; font: 700 18px var(--f-display); letter-spacing: .04em; text-transform: uppercase; }
-.rules ol { margin: 8px 0 0; padding-left: 20px; font-size: 13.5px; display: grid; gap: 6px; }
-.log { max-height: 280px; overflow: auto; font-size: 12.5px; }
-.log h2 { font-size: 16px; text-transform: uppercase; letter-spacing: .06em; margin-bottom: 6px; }
-.ln { display: flex; gap: 8px; padding: 3px 0; border-top: 1px solid var(--line); }
-.ln:first-of-type { border-top: 0; }
-.ln i { flex: none; width: 8px; height: 8px; border-radius: 50%; margin-top: 5px; background: var(--muted); }
-.ln.you i { background: var(--you); } .ln.foe i { background: var(--foe); }
-.ln span { color: var(--muted); font-variant-numeric: tabular-nums; flex: none; min-width: 20px; }
-.iart { position: relative; overflow: hidden; }
+.cv-stats { flex: none; display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; padding: 4px 14px 8px; }
+.cv-stats div { background: var(--surface-2); border-radius: 8px; padding: 4px 8px; }
+.cv-stats small { display: block; font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: .08em; }
+.cv-stats b { font: 700 22px/1.1 var(--f-display); font-variant-numeric: tabular-nums; }
+.cv-text { flex: 1; min-height: 0; overflow: auto; padding: 0 14px 14px; font-size: 13.5px; }
+.cv-text p { margin: 6px 0 0; }
+.cv-text p.note { color: var(--muted); font-size: 12.5px; }
+.cv-text p.fcast { font-weight: 600; }
 .kwhelp { margin: 10px 0 0; padding-left: 18px; font-size: 12.5px; color: var(--muted); display: grid; gap: 4px; }
-.lib summary { cursor: pointer; font: 700 18px var(--f-display); letter-spacing: .04em; text-transform: uppercase; }
-.libbody { max-height: 440px; overflow: auto; margin-top: 8px; font-size: 12.5px; }
-.libbody h3 { margin: 12px 0 4px; font: 700 14px var(--f-display); letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
-.libbody h3:first-child { margin-top: 0; }
+
+.sheet { position: relative; width: min(580px, 100%); max-height: 100%; overflow: auto; background: var(--surface); border: 1px solid var(--line); border-radius: 16px; padding: 16px 18px 20px; box-shadow: 0 24px 70px rgba(0, 0, 0, .55); }
+.sheet h2 { margin: 0 0 8px; font: 700 26px/1.1 var(--f-display); letter-spacing: .04em; text-transform: uppercase; }
+.sheet h3 { margin: 18px 0 6px; font: 700 18px var(--f-display); letter-spacing: .05em; text-transform: uppercase; border-bottom: 2px solid var(--line); padding-bottom: 2px; }
+.sheet ol, .sheet ul.plain { margin: 6px 0 0; padding-left: 20px; font-size: 13.5px; display: grid; gap: 6px; }
+.sheet .x { position: absolute; top: 10px; right: 12px; }
+.sheet .swatch { display: inline-block; width: 12px; height: 12px; border-radius: 3px; border: 3px solid; vertical-align: -1px; margin-right: 4px; }
+.sheet .s-out { border-style: dashed; border-color: var(--timer); } .sheet .s-foe { border-color: var(--bad); } .sheet .s-ally { border-color: var(--good); }
+.libbody { margin-top: 6px; font-size: 12.5px; }
+.libbody h4 { margin: 14px 0 4px; font: 700 14px var(--f-display); letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
+.libbody h4.sect { font-size: 16px; color: var(--ink); }
 .libbody ul { list-style: none; margin: 0; padding: 0; }
 .libbody li { padding: 5px 0; border-top: 1px solid var(--line); }
-.libbody .st { color: var(--muted); } .libbody .tx { color: var(--muted); }
-.libbody h3.sect { font-size: 17px; color: var(--ink); border-bottom: 2px solid var(--line); padding-bottom: 2px; margin-top: 16px; }
-.libbody .dtheme { margin: 0 0 4px; color: var(--muted); }
-.indeck.foe { background: var(--foe-wash); color: var(--foe); }
+.libbody .st, .libbody .tx, .libbody .dtheme { color: var(--muted); }
+.libbody .dtheme { margin: 0 0 4px; }
 .indeck { font-style: normal; font-size: 10px; font-weight: 600; padding: 1px 6px; border-radius: 999px; background: var(--you-wash); color: var(--you); }
+.indeck.foe { background: var(--foe-wash); color: var(--foe); }
+.overview { width: 320px; max-width: 100%; text-align: center; background: var(--surface); border: 3px solid var(--line); border-radius: 18px; padding: 22px 20px; box-shadow: 0 24px 70px rgba(0, 0, 0, .55); }
+.overview.you { border-color: var(--you); } .overview.foe { border-color: var(--foe); }
+.overview h2 { margin: 0; font: 700 40px/1 var(--f-display); letter-spacing: .05em; text-transform: uppercase; }
+.overview p { color: var(--muted); margin: 8px 0 16px; }
 @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
 </style>
 
 </head>
 <body>
 <div class="app">
-  <header class="top">
-    <div>
-      <h1>Countdown Grid</h1>
-      <p class="sub">Two grids, one per side. Every card has a timer. First side to 100 points wins, and the enemy shows its plays before you answer.</p>
-    </div>
-    <div class="ctrls">
-      <label for="deck-foe">Enemy Deck <select id="deck-foe"></select></label>
-      <label for="deck-you">Player Deck <select id="deck-you"></select></label>
-      <button class="btn ghost" id="randomize" type="button">Randomize</button>
-      <label for="showfc"><input type="checkbox" id="showfc" checked> Forecast</label>
-      <label for="fast"><input type="checkbox" id="fast"> Fast resolve</label>
-      <button class="btn ghost" id="newgame" type="button">New game</button>
-    </div>
+  <header class="ctrls">
+    <label for="deck-foe">Enemy Deck <select id="deck-foe"></select></label>
+    <label for="deck-you">Player Deck <select id="deck-you"></select></label>
+    <button class="btn ghost sm" id="randomize" type="button">Randomize</button>
+    <button class="btn ghost sm" id="newgame" type="button">New game</button>
+    <button class="btn ghost sm" id="help" type="button">Help</button>
   </header>
 
-  <section class="scores" id="scores" aria-label="Scores"></section>
-
   <div class="stage">
+    <div class="hud">
+      <div class="badge" id="badge" aria-label="Scores"></div>
+      <button class="btn primary" id="end" type="button">End round</button>
+    </div>
     <div class="play">
-      <div class="intent" id="intent" aria-live="polite"></div>
       <div class="grid foe">
-        <div class="gl"><b id="gl-foe">Enemy grid</b><span>front row at the bottom, nearest you</span></div>
         <div class="board" id="board-foe" role="group" aria-label="Enemy grid"></div>
       </div>
       <div class="frontline">front line</div>
       <div class="grid you">
         <div class="board" id="board-you" role="group" aria-label="Your grid"></div>
-        <div class="gl"><b id="gl-you">Your grid</b><span>front row at the top. A1 is opposite A1.</span></div>
-      </div>
-      <div class="legend" aria-label="Highlight legend">
-        <span>Hover a cell, or an empty cell with a card selected:</span>
-        <span><i class="l-out"></i>cells it affects</span>
-        <span><i class="l-foe"></i>enemy cards that affect it</span>
-        <span><i class="l-ally"></i>friendly cards that affect it</span>
       </div>
       <div class="handbar">
         <div class="status" id="status" aria-live="polite"></div>
         <div class="hand" id="hand" role="group" aria-label="Your hand"></div>
-        <div class="actions">
-          <button class="btn ghost" id="undo" type="button">Undo last play</button>
-          <button class="btn primary" id="end" type="button">End round</button>
-        </div>
       </div>
     </div>
-    <aside class="side">
-      <div class="panel" id="inspect" aria-live="polite"></div>
-      <details class="panel rules" open>
-        <summary>How it works</summary>
-        <ol>
-          <li>You and the enemy each have a 3&times;4 grid. Cells share labels, so your A1 is opposite the enemy's A1. Row 1 is each side's front row.</li>
-          <li>Each round you get energy equal to the round number (max 6) and draw a card. Pick a card, then a cell on your grid.</li>
-          <li>The enemy's plays are shown first as dashed ghost cards on its grid, and the forecast shows what will happen if you end the round now.</li>
-          <li>Every card has a timer. At the end of each round all timers drop by 1. At 0 the effect fires, then the timer resets. Cards fire in the order they were placed.</li>
-          <li>Attacks hit the opposite card, the opposite row or column, or the strongest card. Targets are picked fresh each tick, after the enemy's plays land and before any effect fires, so they never shift mid-tick. A card at 0 power is destroyed, and a destroyed card never fires.</li>
-          <li>After effects, each side scores the total power on its own grid. First to 100 wins.</li>
-          <li>You can place a card on any cell of your grid. Placing on an occupied cell replaces that card, which goes to your discard. Each side plays the deck chosen in its dropdown. Every deck is 12 different cards.</li>
-          <li>Keywords are explained in the Keywords panel below and in the inspector.</li>
-        </ol>
-      </details>
-      <details class="panel rules" id="kwpanel">
-        <summary>Keywords</summary>
-        <ol id="kwlist"></ol>
-      </details>
-      <details class="panel lib">
-        <summary>Card library</summary>
-        <div class="libbody" id="libbody"></div>
-      </details>
-      <div class="panel log" id="log"></div>
-    </aside>
   </div>
 </div>
+
+<div class="modal" id="modal" hidden></div>
 
 <script>
 /* Countdown Grid - two grids, pure game logic (no DOM).
@@ -1121,15 +1075,13 @@ const Core = (function () {
   const sleep = ms => new Promise(r => setTimeout(r, ms));
 
   let G = null;
-  const ui = { sel: null, inspect: null, flash: {}, busy: false, gain: null, fast: false, showFc: true, deckYou: 'starter', deckFoe: 'starter', tip: '', fc: null, hover: null, armed: null };
+  // modal: null | {k:'cell', side, i} | {k:'hand', uid} | {k:'help'} | {k:'over'}
+  const ui = { sel: null, flash: {}, busy: false, gain: null, tip: '', fc: null, hover: null, armed: null, deckYou: 'starter', deckFoe: 'starter', modal: null };
 
   function start() {
     G = Core.newGame(Math.random, { deckIds: { you: ui.deckYou, foe: ui.deckFoe } });
-    $('#gl-foe').textContent = 'Enemy grid \u00b7 ' + Core.deckById(ui.deckFoe).name;
-    $('#gl-you').textContent = 'Your grid \u00b7 ' + Core.deckById(ui.deckYou).name;
     Core.startRound(G);
-    Object.assign(ui, { sel: null, inspect: null, flash: {}, busy: false, gain: null, tip: '', fc: null, hover: null, armed: null });
-    renderLib();
+    Object.assign(ui, { sel: null, flash: {}, busy: false, gain: null, tip: '', fc: null, hover: null, armed: null, modal: null });
     render();
   }
 
@@ -1142,7 +1094,7 @@ const Core = (function () {
     const cells = document.querySelectorAll('.cell');
     const h = ui.hover;
     let out = null, inn = null, srcKey = null, placing = null, label = '';
-    if (h && !ui.busy && !G.over) {
+    if (h && !ui.busy && !G.over && !ui.modal) {
       srcKey = h.side + ':' + h.i;
       const c = G.boards[h.side][h.i];
       const gh = h.side === 'foe' && !c ? ghostAt(h.i) : null;
@@ -1183,36 +1135,19 @@ const Core = (function () {
   function clearHover() { ui.hover = null; applyHl(); }
 
   // ---------- rendering ----------
-  function renderScores() {
-    const row = (side, label) => {
+  // score badge: the enemy's score (red) over yours (blue), each as "score / 100" plus the forecast gain for this round
+  function renderHud() {
+    const row = (side, name) => {
       const s = G.side[side];
-      const g = ui.gain ? ui.gain[side] : 0;
       let extra = '';
-      if (ui.fc) extra = `<em class="proj" title="Forecast for this round">+${ui.fc.gain[side]} forecast</em>`;
-      else if (g) extra = `<em>+${g}</em>`;
-      return `<div class="srow ${side}"><div class="slabel">${label}</div>
-        <div class="bar" role="progressbar" aria-label="${label} score" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${Math.min(100, s.score)}"><i style="width:${Math.min(100, s.score)}%"></i></div>
-        <div class="snum"><b>${s.score}</b><span>/ 100</span>${extra}</div></div>`;
+      if (ui.fc) extra = `<em>+${ui.fc.gain[side]}</em>`;
+      else if (ui.gain && ui.gain[side]) extra = `<em class="got">+${ui.gain[side]}</em>`;
+      const fc = ui.fc ? `, forecast plus ${ui.fc.gain[side]}` : '';
+      return `<div class="sc ${side}" aria-label="${name} score ${s.score} of 100${fc}"><b>${s.score}</b><span>/100</span>${extra}</div>`;
     };
-    $('#scores').innerHTML = row('foe', 'Enemy') + row('you', 'You');
-  }
-
-  function renderIntent() {
-    const el = $('#intent');
-    if (G.over) {
-      const w = G.over.winner;
-      const txt = w === 'you' ? 'You win' : w === 'foe' ? 'The enemy wins' : 'Draw';
-      el.innerHTML = `<div class="verdict ${w}"><div><strong>${txt}</strong><span>Final score ${G.side.you.score} to ${G.side.foe.score} after ${G.round} rounds.</span></div><button class="btn primary" id="again" type="button">Play again</button></div>`;
-      return;
-    }
-    const F = G.side.foe;
-    const lead = `<div class="lead"><b>Enemy intends</b> this round (${F.energy} energy, ${F.hand.length} cards in hand)${G.plan.length ? '' : ': nothing to play.'}</div>`;
-    const chips = G.plan.map((p, k) => {
-      const over = G.boards.foe[p.cell] && !p.placed;
-      const verb = Core.isEph(p.card) ? 'cast at' : (over ? 'over' : 'to');
-      return `<button class="chip${p.placed ? ' done' : ''}" type="button" data-plan="${k}"><b>${k + 1}</b>${esc(p.card.name)} <span>${verb} ${cn(p.cell)}</span></button>`;
-    }).join('');
-    el.innerHTML = lead + chips;
+    $('#badge').innerHTML = row('foe', 'Enemy') + row('you', 'Your');
+    $('#end').disabled = ui.busy || G.phase !== 'plan';
+    $('#end').textContent = ui.busy ? 'Resolving…' : 'End round';
   }
 
   function badge(f) {
@@ -1298,40 +1233,29 @@ const Core = (function () {
       const poor = c.cost > Y.energy;
       const tm = c.timerBase == null ? '' : `<span class="tm" title="Timer (ticks between effects)">${c.timerBase}</span>`;
       return `<button class="hcard${ui.sel === c.uid ? ' sel' : ''}${poor ? ' poor' : ''}" type="button" data-hand="${c.uid}" aria-pressed="${ui.sel === c.uid}">
-        <span class="hart art-box${artCls(c)}" ${artAttrs(c)}><span class="cost" title="Energy cost">${c.cost}</span></span>
+        <span class="hart art-box${artCls(c)}" ${artAttrs(c)}><span class="cost" title="Energy cost">${c.cost}</span><span class="info" role="button" tabindex="0" data-info="${c.uid}" aria-label="Card details for ${esc(c.name)}" title="Card details">i</span></span>
         <span class="hbody"><span class="hn">${esc(c.name)}</span>
         <span class="hmeta"><span class="pw">${pwText(c)}</span>${tm}</span>
         <span class="hfx">${esc(Core.cardText(c))}</span></span></button>`;
     }).join('');
   }
 
-  function inspectModel() {
-    const t = ui.inspect;
-    if (!t) return null;
-    if (t.k === 'cell') {
-      const c = G.boards[t.side][t.i];
-      if (c) return { card: c, where: cn(t.i), kind: 'board' };
-      const p = t.side === 'foe' ? ghostAt(t.i) : null;
-      if (p) return { card: p.card, where: cn(t.i), kind: 'ghost' };
+  // ---------- modal: card view, help, game over ----------
+  function cardModel(m) {
+    if (m.k === 'cell') {
+      const c = G.boards[m.side][m.i];
+      if (c) return { card: c, where: cn(m.i), kind: 'board' };
+      const p = m.side === 'foe' ? ghostAt(m.i) : null;
+      if (p) return { card: p.card, where: cn(m.i), kind: 'ghost' };
       return null;
     }
-    if (t.k === 'hand') {
-      const c = G.side.you.hand.find(h => h.uid === t.uid);
+    if (m.k === 'hand') {
+      const c = G.side.you.hand.find(h => h.uid === m.uid);
       return c ? { card: c, kind: 'hand' } : null;
-    }
-    if (t.k === 'plan') {
-      const p = G.plan[t.i];
-      return p ? { card: p.card, where: cn(p.cell), kind: 'ghost' } : null;
     }
     return null;
   }
-  function renderInspect() {
-    const el = $('#inspect');
-    const m = inspectModel();
-    if (!m) {
-      el.innerHTML = `<h2>Inspector</h2><p class="note">Hover or tap any card, ghost or chip to read what it does and when it fires. The board also marks the cells it affects (amber), the enemy cards that affect it (red) and the friendly cards that affect it (green).</p>`;
-      return;
-    }
+  function cardView(m) {
     const c = m.card, owner = c.owner, eph = Core.isEph(c);
     const timer = c.timerBase == null ? 'None' : (m.kind === 'board' ? `${c.timer} / ${c.timerBase}` : `${c.timerBase}`);
     let when = '';
@@ -1341,8 +1265,8 @@ const Core = (function () {
     else when = `If placed this round, it first fires at the end of round ${G.round + c.timerBase - 1}.`;
     if (Core.hasKw(c, 'haste') && !eph) when = 'It also fires the moment it is placed. ' + when;
     let note = '';
-    if (m.kind === 'ghost') note = `<p class="note">The enemy intends to ${eph ? 'cast' : 'play'} this at ${m.where}. You can't block it, so use the forecast to see what it will do and arrange your own cards around it.</p>`;
-    if (m.kind === 'hand') note = `<p class="note">Select it, then choose ${eph ? 'a cell to cast it on' : 'a cell on your grid. Placing on an occupied cell replaces that card'}. Cost ${c.cost} of your ${G.side.you.energy} energy.</p>`;
+    if (m.kind === 'ghost') note = `<p class="note">The enemy intends to ${eph ? 'cast' : 'play'} this at ${m.where}. You can't block it, so see what it will do and arrange your own cards around it.</p>`;
+    if (m.kind === 'hand') note = `<p class="note">Close this, select the card, then choose ${eph ? 'a cell to cast it on' : 'a cell on your grid. Placing on an occupied cell replaces that card'}. Cost ${c.cost} of your ${G.side.you.energy} energy.</p>`;
     let fcast = '';
     const f = ui.fc && ui.fc.byUid[c.uid];
     if (f) {
@@ -1361,19 +1285,26 @@ const Core = (function () {
     if (c.silenced > 0) live.push(`Silenced for ${c.silenced} more tick${c.silenced === 1 ? '' : 's'}: its text is off.`);
     if (c.shield && !Core.hasKw(c, 'shield')) live.push('Has a Shield from another card.');
     const help = Core.keywordHelp(c).map(t => `<li>${esc(t)}</li>`).join('');
-    el.innerHTML = `<div class="iart art-box ${owner}${artCls(c)}" ${artAttrs(c)} role="img" aria-label="Art for ${esc(c.name)}"></div>
-      <div class="ih"><span class="tag ${owner}">${owner === 'you' ? 'You' : 'Enemy'}</span><h2>${esc(c.name)}</h2></div>
-      <div class="stats"><div><small>Cost</small><b>${c.cost}</b></div><div><small>Power</small><b>${pwText(c)}</b></div><div><small>Timer</small><b>${timer}</b></div></div>
-      <p>${esc(Core.cardText(c))}</p><p class="note">${esc(when)}</p>${live.map(t => `<p class="fcast">${esc(t)}</p>`).join('')}${fcast}${note}${help ? `<ul class="kwhelp">${help}</ul>` : ''}`;
+    return `<div class="cardview ${owner}" role="dialog" aria-modal="true" aria-label="${esc(c.name)}">
+      <div class="cv-art art-box${artCls(c)}" ${artAttrs(c)}><span class="cv-cost" title="Energy cost">${c.cost}</span></div>
+      <div class="cv-head"><h2>${esc(c.name)}</h2><span class="tag ${owner}">${owner === 'you' ? 'You' : 'Enemy'}</span></div>
+      <div class="cv-stats"><div><small>Cost</small><b>${c.cost}</b></div><div><small>Power</small><b>${pwText(c)}</b></div><div><small>Timer</small><b>${timer}</b></div></div>
+      <div class="cv-text"><p>${esc(Core.cardText(c))}</p><p class="note">${esc(when)}</p>${live.map(t => `<p class="fcast">${esc(t)}</p>`).join('')}${fcast}${note}${help ? `<ul class="kwhelp">${help}</ul>` : ''}</div>
+    </div>`;
   }
 
-  function renderLog() {
-    const rows = G.log.slice(-40).reverse().map(l => `<div class="ln ${l.side}"><i></i><span>R${l.round}</span><div>${esc(l.text)}</div></div>`).join('');
-    $('#log').innerHTML = `<h2>Log</h2>${rows}`;
-  }
-
-  // card library: both decks in this game, then every card grouped by mechanic (new cards are numbered 1-24)
-  function renderLib() {
+  const RULES = [
+    'You and the enemy each have a 3×4 grid. Cells share labels, so your A1 is opposite the enemy’s A1. Row 1 is each side’s front row. The enemy’s grid is red and yours is blue.',
+    'Each round you get energy equal to the round number (max 6) and draw a card. Pick a card, then a cell on your grid.',
+    'The enemy’s plays are shown first as dashed ghost cards on its grid. The small badges on cards show what will happen if you end the round now, and the numbers beside each score are that side’s gain for this round.',
+    'Every card has a timer. At the end of each round all timers drop by 1. At 0 the effect fires, then the timer resets. Cards fire in the order they were placed.',
+    'Attacks hit the opposite card, the opposite row or column, or the strongest card. Targets are picked fresh each tick, after the enemy’s plays land and before any effect fires, so they never shift mid-tick. A card at 0 power is destroyed, and a destroyed card never fires.',
+    'After effects, each side scores the total power on its own grid. First to 100 wins.',
+    'You can place a card on any cell of your grid. Placing on an occupied cell replaces that card, which goes to your discard.',
+    'Each side plays the deck chosen in its dropdown. Every deck is 12 different cards.',
+    'Click a card on the board, or the i on a card in your hand, to read it. Right-click works on any card too.',
+  ];
+  function helpHTML() {
     const mine = Core.deckById(ui.deckYou), theirs = Core.deckById(ui.deckFoe);
     const inYou = new Set(mine.cards), inFoe = new Set(theirs.cards);
     const entry = d => {
@@ -1381,25 +1312,56 @@ const Core = (function () {
       const tags = (inYou.has(d.id) ? ' <i class="indeck">your deck</i>' : '') + (inFoe.has(d.id) ? ' <i class="indeck foe">enemy deck</i>' : '');
       return `<li><b>${d.num ? '#' + d.num + ' ' : ''}${esc(d.name)}</b>${tags} <span class="st">${stats}</span><br><span class="tx">${esc(Core.cardText(d))}</span></li>`;
     };
-    const deckList = (deck) => `<h3>${esc(deck.name)}</h3><p class="dtheme">${esc(deck.theme)}</p><ul>${deck.cards.map(id => entry(Core.POOL.find(d => d.id === id))).join('')}</ul>`;
+    const deckList = deck => `<h4>${esc(deck.name)}</h4><p class="dtheme">${esc(deck.theme)}</p><ul>${deck.cards.map(id => entry(Core.POOL.find(d => d.id === id))).join('')}</ul>`;
     const groups = [['Starter 12', Core.CLASSIC], ['Shield', Core.NEW.slice(0, 3)], ['Ephemeral', Core.NEW.slice(3, 6)], ['Haste', Core.NEW.slice(6, 9)],
       ['Destroy', Core.NEW.slice(9, 12)], ['Glass', Core.NEW.slice(12, 15)], ['Consume', Core.NEW.slice(15, 18)], ['Edible', Core.NEW.slice(18, 21)], ['Silence', Core.NEW.slice(21, 24)]];
-    $('#kwlist').innerHTML = Object.values(Core.KW_HELP).map(t => '<li>' + esc(t) + '</li>').join('');
-    $('#libbody').innerHTML =
-      `<h3 class="sect">Your deck</h3>` + deckList(mine) +
-      (theirs.id === mine.id ? '' : `<h3 class="sect">Enemy deck</h3>` + deckList(theirs)) +
-      `<h3 class="sect">All cards</h3>` + groups.map(([name, list]) => `<h3>${name}</h3><ul>${list.map(entry).join('')}</ul>`).join('');
+    return `<div class="sheet" role="dialog" aria-modal="true" aria-label="Help">
+      <button class="btn ghost sm x" type="button" data-close>Close</button>
+      <h2>How it works</h2>
+      <ol>${RULES.map(t => `<li>${esc(t)}</li>`).join('')}</ol>
+      <h3>Highlights</h3>
+      <ul class="plain">
+        <li><span class="swatch s-out"></span>Hover a cell (or an empty cell with a card selected) to outline the cells it affects.</li>
+        <li><span class="swatch s-foe"></span>Red outline: enemy cards that affect that cell.</li>
+        <li><span class="swatch s-ally"></span>Green outline: friendly cards that affect that cell.</li>
+      </ul>
+      <h3>Keywords</h3>
+      <ul class="plain">${Object.values(Core.KW_HELP).map(t => `<li>${esc(t)}</li>`).join('')}</ul>
+      <h3>Card library</h3>
+      <div class="libbody">
+        <h4 class="sect">Your deck</h4>${deckList(mine)}
+        ${theirs.id === mine.id ? '' : `<h4 class="sect">Enemy deck</h4>${deckList(theirs)}`}
+        <h4 class="sect">All cards</h4>${groups.map(([name, list]) => `<h4>${name}</h4><ul>${list.map(entry).join('')}</ul>`).join('')}
+      </div>
+    </div>`;
+  }
+  function overHTML() {
+    const w = G.over ? G.over.winner : 'draw';
+    const txt = w === 'you' ? 'You win' : w === 'foe' ? 'Enemy wins' : 'Draw';
+    return `<div class="overview ${w}" role="dialog" aria-modal="true" aria-label="Game over">
+      <h2>${txt}</h2><p>Final score ${G.side.you.score} to ${G.side.foe.score} after ${G.round} rounds.</p>
+      <button class="btn primary" id="again" type="button">Play again</button></div>`;
   }
 
-  function renderControls() {
-    $('#end').disabled = ui.busy || G.phase !== 'plan';
-    $('#end').textContent = ui.busy ? 'Resolving…' : 'End round';
-    $('#undo').disabled = ui.busy || G.phase !== 'plan' || !G.undo.length;
+  // The help sheet is only built when it opens, so its scroll position survives re-renders.
+  function renderModal(force) {
+    const el = $('#modal');
+    const m = ui.modal;
+    if (!m) { el.hidden = true; el.innerHTML = ''; return; }
+    if (m.k === 'help' && !force && !el.hidden) return;
+    let html = '';
+    if (m.k === 'help') html = helpHTML();
+    else if (m.k === 'over') html = overHTML();
+    else { const cm = cardModel(m); if (!cm) { ui.modal = null; el.hidden = true; el.innerHTML = ''; return; } html = cardView(cm); }
+    el.innerHTML = html;
+    el.hidden = false;
   }
+  function openModal(m) { ui.modal = m; renderModal(true); applyHl(); }
+  function closeModal() { ui.modal = null; renderModal(); applyHl(); }
 
   function render() {
-    ui.fc = (ui.showFc && G.phase === 'plan' && !ui.busy) ? Core.forecast(G) : null;
-    renderScores(); renderIntent(); renderBoards(); renderStatus(); renderHand(); renderInspect(); renderLog(); renderControls();
+    ui.fc = (G.phase === 'plan' && !ui.busy) ? Core.forecast(G) : null;
+    renderHud(); renderBoards(); renderStatus(); renderHand(); renderModal();
     applyHl();
   }
 
@@ -1431,7 +1393,6 @@ const Core = (function () {
       const r = Core.playCard(G, ui.sel, i);
       if (r) {
         ui.sel = null;
-        ui.inspect = G.boards.you[i] ? { k: 'cell', side, i } : null;
         ui.flash = {};
         addFlash(ui.flash, r.marks);
         render();
@@ -1439,13 +1400,12 @@ const Core = (function () {
         return;
       }
     }
-    if (G.boards[side][i] || (side === 'foe' && ghostAt(i))) { ui.inspect = { k: 'cell', side, i }; renderInspect(); }
+    if (G.boards[side][i] || (side === 'foe' && ghostAt(i))) { openModal({ k: 'cell', side, i }); return; }
     applyHl();
   }
   function onHand(uid) {
     const c = G.side.you.hand.find(h => h.uid === uid);
     if (!c) return;
-    ui.inspect = { k: 'hand', uid };
     ui.armed = null;
     if (G.phase === 'plan' && !ui.busy) {
       if (c.cost > G.side.you.energy) { ui.sel = null; ui.tip = `${c.name} costs ${c.cost} energy and you have ${G.side.you.energy}.`; }
@@ -1456,55 +1416,56 @@ const Core = (function () {
 
   async function endRound() {
     if (ui.busy || G.phase !== 'plan') return;
-    ui.busy = true; ui.sel = null; ui.gain = null; ui.tip = ''; ui.hover = null; ui.armed = null;
+    ui.busy = true; ui.sel = null; ui.gain = null; ui.tip = ''; ui.hover = null; ui.armed = null; ui.modal = null;
     render();
     for (const ev of Core.resolveRound(G)) {
       ui.flash = {};
       addFlash(ui.flash, ev.marks);
       if (ev.gain) ui.gain = ev.gain;
       render();
-      if (ev.ms) await sleep(ui.fast ? 90 : DELAY[ev.ms] || 600);
+      if (ev.ms) await sleep(DELAY[ev.ms] || 600);
     }
     ui.flash = {};
     ui.busy = false;
+    if (G.over) ui.modal = { k: 'over' };
     render();
   }
 
   for (const side of ['foe', 'you']) {
     const b = $('#board-' + side);
     b.addEventListener('click', e => { const el = e.target.closest('[data-cell]'); if (el) onCell(side, +el.dataset.cell); });
+    b.addEventListener('contextmenu', e => {
+      const el = e.target.closest('[data-cell]'); if (!el) return;
+      const i = +el.dataset.cell;
+      if (G.boards[side][i] || (side === 'foe' && ghostAt(i))) { e.preventDefault(); openModal({ k: 'cell', side, i }); }
+    });
     for (const ev of ['mouseover', 'focusin']) {
-      b.addEventListener(ev, e => {
-        const el = e.target.closest('[data-cell]'); if (!el) return;
-        const i = +el.dataset.cell;
-        if (G.boards[side][i] || (side === 'foe' && ghostAt(i))) { ui.inspect = { k: 'cell', side, i }; renderInspect(); }
-        setHover(side, i);
-      });
+      b.addEventListener(ev, e => { const el = e.target.closest('[data-cell]'); if (el) setHover(side, +el.dataset.cell); });
     }
-    for (const ev of ['mouseleave']) b.addEventListener(ev, clearHover);
+    b.addEventListener('mouseleave', clearHover);
   }
-  $('#hand').addEventListener('click', e => { const b = e.target.closest('[data-hand]'); if (b) onHand(+b.dataset.hand); });
-  $('#intent').addEventListener('click', e => {
-    if (e.target.closest('#again')) { start(); return; }
-    const b = e.target.closest('[data-plan]');
-    if (b) { ui.inspect = { k: 'plan', i: +b.dataset.plan }; renderInspect(); }
+  $('#hand').addEventListener('click', e => {
+    const info = e.target.closest('[data-info]');
+    if (info) { e.stopPropagation(); openModal({ k: 'hand', uid: +info.dataset.info }); return; }
+    const b = e.target.closest('[data-hand]'); if (b) onHand(+b.dataset.hand);
   });
-  for (const ev of ['mouseover', 'focusin']) {
-    $('#hand').addEventListener(ev, e => {
-      const b = e.target.closest('[data-hand]'); if (!b) return;
-      ui.inspect = { k: 'hand', uid: +b.dataset.hand }; renderInspect();
-    });
-    $('#intent').addEventListener(ev, e => {
-      const b = e.target.closest('[data-plan]'); if (!b) return;
-      const k = +b.dataset.plan;
-      ui.inspect = { k: 'plan', i: k }; renderInspect();
-      if (G.plan[k] && !G.plan[k].placed) setHover('foe', G.plan[k].cell);
-    });
-  }
-  for (const ev of ['mouseleave']) $('#intent').addEventListener(ev, clearHover);
+  $('#hand').addEventListener('keydown', e => {
+    const info = e.target.closest('[data-info]');
+    if (info && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); e.stopPropagation(); openModal({ k: 'hand', uid: +info.dataset.info }); }
+  });
+  $('#hand').addEventListener('contextmenu', e => {
+    const b = e.target.closest('[data-hand]'); if (b) { e.preventDefault(); openModal({ k: 'hand', uid: +b.dataset.hand }); }
+  });
+  // modal: click off the card (on the dimmed background) or press Escape to close
+  $('#modal').addEventListener('click', e => {
+    if (e.target.id === 'again') { start(); return; }
+    if (e.target === $('#modal') || e.target.closest('[data-close]')) closeModal();
+  });
+  document.addEventListener('keydown', e => { if (e.key === 'Escape' && ui.modal) closeModal(); });
+
   $('#end').addEventListener('click', endRound);
-  $('#undo').addEventListener('click', () => { if (Core.undoPlay(G)) { ui.sel = null; ui.tip = ''; render(); } });
   $('#newgame').addEventListener('click', start);
+  $('#help').addEventListener('click', () => openModal({ k: 'help' }));
   // deck pickers: Starter first, then the themed decks. Changing either one starts a new game.
   const fillDecks = () => {
     for (const [sel, key] of [['#deck-foe', 'deckFoe'], ['#deck-you', 'deckYou']]) {
@@ -1521,8 +1482,6 @@ const Core = (function () {
     fillDecks();
     start();
   });
-  $('#fast').addEventListener('change', e => { ui.fast = e.target.checked; });
-  $('#showfc').addEventListener('change', e => { ui.showFc = e.target.checked; render(); });
 
   start();
 })();
