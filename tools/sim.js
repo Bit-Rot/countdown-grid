@@ -30,7 +30,7 @@ function run(strategy, n) {
   let y = 0, f = 0, d = 0, margin = 0;
   const lens = [];
   for (let k = 0; k < n; k++) {
-    const G = Core.newGame(Core.mulberry32(2000 + k));
+    const G = Core.newGame(Core.mulberry32(2000 + k), { deckMode: process.env.DECK || 'classic' });
     G.foeBonus = +(process.env.FB || 0);
     Core.startRound(G);
     let guard = 0;

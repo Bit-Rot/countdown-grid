@@ -1,7 +1,7 @@
 const Core=require('../src/core.js');
 let rounds=0,bad=0,powerBad=0;
 for(let k=0;k<200;k++){
-  const G=Core.newGame(Core.mulberry32(77+k)); G.foeBonus=0; Core.startRound(G);
+  const G=Core.newGame(Core.mulberry32(77+k),{deckMode:process.env.DECK||'mixed'}); G.foeBonus=0; Core.startRound(G);
   let guard=0;
   while(G.phase!=='over'&&guard++<30){
     for(const p of Core.aiPlan(G,'you')) Core.playCard(G,p.card.uid,p.cell);
