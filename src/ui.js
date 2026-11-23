@@ -6,7 +6,9 @@
 
   // ---------- card art ----------
   // Art lives in art/<card id>.jpg; tokens use art/<token name>.jpg. Cards without art get a tinted placeholder with their initials.
-  const ART = new Set(Core.CLASSIC.map(d => d.id).concat('sandling'));
+  // Cards that still need art (delete an id from this list once art/<id>.jpg exists and is added to tools/make-art.ps1).
+  const NO_ART = new Set(['assassin', 'executioner', 'reaper']);
+  const ART = new Set(Core.POOL.map(d => d.id).filter(id => !NO_ART.has(id)).concat('sandling'));
   const artKey = c => (c.token ? c.name.toLowerCase() : c.def);
   const hasArt = c => ART.has(artKey(c));
   const hueOf = s => { let h = 7; for (const ch of String(s)) h = (h * 31 + ch.charCodeAt(0)) % 360; return h; };
@@ -22,11 +24,12 @@
   const sleep = ms => new Promise(r => setTimeout(r, ms));
 
   let G = null;
-  const ui = { sel: null, inspect: null, flash: {}, busy: false, gain: null, fast: false, showFc: true, diff: 0, deck: 'mixed', tip: '', fc: null, hover: null, armed: null };
+  const ui = { sel: null, inspect: null, flash: {}, busy: false, gain: null, fast: false, showFc: true, deckYou: 'starter', deckFoe: 'starter', tip: '', fc: null, hover: null, armed: null };
 
   function start() {
-    G = Core.newGame(Math.random, { deckMode: ui.deck });
-    G.foeBonus = ui.diff;
+    G = Core.newGame(Math.random, { deckIds: { you: ui.deckYou, foe: ui.deckFoe } });
+    $('#gl-foe').textContent = 'Enemy grid \u00b7 ' + Core.deckById(ui.deckFoe).name;
+    $('#gl-you').textContent = 'Your grid \u00b7 ' + Core.deckById(ui.deckYou).name;
     Core.startRound(G);
     Object.assign(ui, { sel: null, inspect: null, flash: {}, busy: false, gain: null, tip: '', fc: null, hover: null, armed: null });
     renderLib();
@@ -272,19 +275,23 @@
     $('#log').innerHTML = `<h2>Log</h2>${rows}`;
   }
 
-  // card library: this game's deck, then every card grouped by mechanic (new cards are numbered 1-24)
+  // card library: both decks in this game, then every card grouped by mechanic (new cards are numbered 1-24)
   function renderLib() {
-    const inDeck = new Set(G.deckDefs.map(d => d.id));
+    const mine = Core.deckById(ui.deckYou), theirs = Core.deckById(ui.deckFoe);
+    const inYou = new Set(mine.cards), inFoe = new Set(theirs.cards);
     const entry = d => {
       const stats = `${d.cost}c &middot; ${d.kw.indexOf('ephemeral') >= 0 ? 'spell' : d.power + 'p'}${d.timer ? ' &middot; T' + d.timer : ''}`;
-      return `<li><b>${d.num ? '#' + d.num + ' ' : ''}${esc(d.name)}</b>${inDeck.has(d.id) ? ' <i class="indeck">in this deck</i>' : ''} <span class="st">${stats}</span><br><span class="tx">${esc(Core.cardText(d))}</span></li>`;
+      const tags = (inYou.has(d.id) ? ' <i class="indeck">your deck</i>' : '') + (inFoe.has(d.id) ? ' <i class="indeck foe">enemy deck</i>' : '');
+      return `<li><b>${d.num ? '#' + d.num + ' ' : ''}${esc(d.name)}</b>${tags} <span class="st">${stats}</span><br><span class="tx">${esc(Core.cardText(d))}</span></li>`;
     };
-    const groups = [['Original 12', Core.CLASSIC], ['Shield', Core.NEW.slice(0, 3)], ['Ephemeral', Core.NEW.slice(3, 6)], ['Haste', Core.NEW.slice(6, 9)],
+    const deckList = (deck) => `<h3>${esc(deck.name)}</h3><p class="dtheme">${esc(deck.theme)}</p><ul>${deck.cards.map(id => entry(Core.POOL.find(d => d.id === id))).join('')}</ul>`;
+    const groups = [['Starter 12', Core.CLASSIC], ['Shield', Core.NEW.slice(0, 3)], ['Ephemeral', Core.NEW.slice(3, 6)], ['Haste', Core.NEW.slice(6, 9)],
       ['Destroy', Core.NEW.slice(9, 12)], ['Glass', Core.NEW.slice(12, 15)], ['Consume', Core.NEW.slice(15, 18)], ['Edible', Core.NEW.slice(18, 21)], ['Silence', Core.NEW.slice(21, 24)]];
     $('#kwlist').innerHTML = Object.values(Core.KW_HELP).map(t => '<li>' + esc(t) + '</li>').join('');
     $('#libbody').innerHTML =
-      `<h3>This game’s deck (both sides)</h3><ul>${G.deckDefs.map(entry).join('')}</ul>` +
-      groups.map(([name, list]) => `<h3>${name}</h3><ul>${list.map(entry).join('')}</ul>`).join('');
+      `<h3 class="sect">Your deck</h3>` + deckList(mine) +
+      (theirs.id === mine.id ? '' : `<h3 class="sect">Enemy deck</h3>` + deckList(theirs)) +
+      `<h3 class="sect">All cards</h3>` + groups.map(([name, list]) => `<h3>${name}</h3><ul>${list.map(entry).join('')}</ul>`).join('');
   }
 
   function renderControls() {
@@ -401,8 +408,22 @@
   $('#end').addEventListener('click', endRound);
   $('#undo').addEventListener('click', () => { if (Core.undoPlay(G)) { ui.sel = null; ui.tip = ''; render(); } });
   $('#newgame').addEventListener('click', start);
-  $('#diff').addEventListener('change', e => { ui.diff = +e.target.value; start(); });
-  $('#deck').addEventListener('change', e => { ui.deck = e.target.value; start(); });
+  // deck pickers: Starter first, then the themed decks. Changing either one starts a new game.
+  const fillDecks = () => {
+    for (const [sel, key] of [['#deck-foe', 'deckFoe'], ['#deck-you', 'deckYou']]) {
+      $(sel).innerHTML = Core.DECKS.map(d => `<option value="${esc(d.id)}" title="${esc(d.theme)}">${esc(d.name)}</option>`).join('');
+      $(sel).value = ui[key];
+    }
+  };
+  fillDecks();
+  $('#deck-foe').addEventListener('change', e => { ui.deckFoe = e.target.value; start(); });
+  $('#deck-you').addEventListener('change', e => { ui.deckYou = e.target.value; start(); });
+  $('#randomize').addEventListener('click', () => {
+    const pick = () => Core.DECKS[Math.floor(Math.random() * Core.DECKS.length)].id;
+    ui.deckYou = pick(); ui.deckFoe = pick();
+    fillDecks();
+    start();
+  });
   $('#fast').addEventListener('change', e => { ui.fast = e.target.checked; });
   $('#showfc').addEventListener('change', e => { ui.showFc = e.target.checked; render(); });
 

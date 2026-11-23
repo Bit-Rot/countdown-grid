@@ -78,6 +78,34 @@ const Core = (function () {
   ];
   const POOL = CLASSIC.concat(NEW);
   const HEROES = CLASSIC, VILLAINS = CLASSIC; // kept as aliases for older tools
+  const BY_ID = Object.fromEntries(POOL.map(d => [d.id, d]));
+
+  // ---------- decks ----------
+  // Every deck is exactly 12 DIFFERENT cards (the Starter deck has 12 distinct cards, so the same limit applies to all decks).
+  const DECK_SIZE_RULE = 12;
+  /*THEMED_DECKS_BEGIN*/
+  const THEMED = [
+    { id: "fortress", name: "Iron Bastion", theme: "Shielded blockers and Aegis Priest keep a growing board alive while Stoneguard, Troll and Warlord grind out points, but it is slow to start and has little burst or removal.",
+      cards: ['fledgling', 'duelist', 'bulwark', 'herald', 'marksman', 'aegis', 'treasurer', 'drillmaster', 'hushpriest', 'stoneguard', 'warlord', 'troll'] },
+    { id: "silence", name: "Hushed Court", theme: "Silence and timer delays shut down the opponent's best cards while cheap engines tick up, but the low-power board scores slowly and loses to fast aggro.",
+      cards: ['fledgling', 'duelist', 'gagwitch', 'frostcaller', 'marksman', 'herald', 'nullmage', 'hushpriest', 'treasurer', 'pikeman', 'warlord', 'troll'] },
+    { id: "assassin", name: "Knife Dance", theme: "Cheap Destroy effects and Lightning Bolt pick off the opponent's best cards with Chronomancer speeding the kills, but its own board scores low early and the long timers are slow.",
+      cards: ['fledgling', 'duelist', 'assassin', 'reaper', 'bolt', 'chronomancer', 'treasurer', 'pikeman', 'drillmaster', 'executioner', 'stoneguard', 'troll'] },
+    { id: "glass", name: "Glass Cannons", theme: "Fragile high-power Glass cards with buffs race for a fast lead, but any negative effect kills them and the deck has no Shield or Silence protection.",
+      cards: ['fledgling', 'rally', 'duelist', 'glasscannon', 'herald', 'seer', 'drillmaster', 'treasurer', 'pikeman', 'golem', 'warlord', 'troll'] },
+    { id: "feeding", name: "Feeding Frenzy", theme: "Cheap Edible bait is placed over by Consume cards that absorb its power and trigger its effect, but it needs the right placements and is weak if hands lack bait or fatties.",
+      cards: ['lamb', 'egg', 'mimic', 'ghoul', 'fledgling', 'herald', 'devourer', 'glutton', 'treasurer', 'drillmaster', 'warlord', 'troll'] },
+    { id: "haste", name: "Quickdraw", theme: "Haste cards fire the turn they land for tempo, scoring and chip damage, backed by Chronomancer and Stormcaller, but it has little late-game power and runs out of steam.",
+      cards: ['fledgling', 'duelist', 'smuggler', 'skirmisher', 'marksman', 'chronomancer', 'treasurer', 'drillmaster', 'pikeman', 'stormcaller', 'warlord', 'stoneguard'] },
+    { id: "spellstorm", name: "Spellstorm", theme: "Bolt, Rallying Cry and Plague Wind burst down threats and bolster the row, with solid bodies to score, but spells never score and Plague Wind costs 5, so the deck stumbles when it draws spells early.",
+      cards: ['bolt', 'rally', 'plague', 'fledgling', 'duelist', 'marksman', 'bulwark', 'treasurer', 'glutton', 'pikeman', 'stoneguard', 'troll'] },
+    { id: "swarm", name: "The Brood", theme: "Hatchlings, Sandlings and a wide board of small cards are buffed by Herald, Drillmaster and Warlord for rapid growth, but it is fragile to area damage like Pikeman and Plague Wind, and slow without setup.",
+      cards: ['fledgling', 'egg', 'bulwark', 'conjurer', 'herald', 'rally', 'drillmaster', 'chronomancer', 'treasurer', 'pikeman', 'warlord', 'troll'] },
+  ];
+  /*THEMED_DECKS_END*/
+  const DECKS = [{ id: 'starter', name: 'Starter', theme: 'The original 12 cards.', cards: CLASSIC.map(d => d.id) }].concat(THEMED);
+  const deckById = id => DECKS.find(d => d.id === id) || DECKS[0];
+  const deckDefs = id => deckById(id).cards.map(cid => BY_ID[cid]);
 
   function mulberry32(a) {
     return function () {
@@ -243,7 +271,7 @@ const Core = (function () {
 
   // mode: 'classic' = the original 12; 'mixed' = 12 random cards from all 36; 'keywords' = 12 random cards from the 24 keyword cards
   function makeDeck(mode, rnd) {
-    if (mode === 'classic') return CLASSIC.slice();
+    if (mode === 'classic' || mode === 'starter') return CLASSIC.slice();
     const src = mode === 'keywords' ? NEW : POOL;
     const G = { rnd };
     let pick = null;
@@ -262,11 +290,15 @@ const Core = (function () {
       side: {}, boards: { you: new Array(N).fill(null), foe: new Array(N).fill(null) },
       plan: [], undo: [], log: [], deckMode: opts.deckMode || 'classic',
     };
-    G.deckDefs = opts.deckDefs || makeDeck(G.deckMode, G.rnd);
+    G.deckIds = opts.deckIds || null;
+    G.deckDefs = opts.deckDefs || (G.deckIds ? deckDefs(G.deckIds.you) : makeDeck(G.deckMode, G.rnd));
+    if (G.deckIds && !opts.decks) opts = Object.assign({}, opts, { decks: { you: deckDefs(G.deckIds.you), foe: deckDefs(G.deckIds.foe) } });
+    G.deckByside = opts.decks || null;
     for (const side of ['you', 'foe']) {
       const S = { score: 0, energy: 0, deck: [], hand: [], discard: [] };
       G.side[side] = S;
       const defs = (opts.decks && opts.decks[side]) || G.deckDefs;
+      if (G.deckByside === null && opts.decks) G.deckByside = opts.decks;
       S.deck = shuffle(G, defs.map(d => makeCard(G, d, side)));
       for (let k = 0; k < START_HAND; k++) draw(G, side);
     }
@@ -767,7 +799,7 @@ const Core = (function () {
   const api = {
     COLS, ROWS, N, WIN, HAND_MAX, ENERGY_CAP, DECK_SIZE, CLASSIC, NEW, POOL, HEROES, VILLAINS, KW_LABEL, KW_HELP, KW_ORDER,
     mulberry32, other, cellName, rowOf, colOf, neighbors, rowCells, colCells, fxText: cardText, cardText, fxShort, keywordHelp, energyMax,
-    hasKw, kwOn, shieldOn, isEph, makeCard, makeDeck, newGame, startRound, aiPlan, cellValue, playCard, undoPlay, placeCard, resolveRound,
+    hasKw, kwOn, shieldOn, isEph, makeCard, makeDeck, DECKS, deckById, deckDefs, newGame, startRound, aiPlan, cellValue, playCard, undoPlay, placeCard, resolveRound,
     forecast, effectArea, influences, previewBoards,
   };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;

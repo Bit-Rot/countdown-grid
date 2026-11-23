@@ -199,6 +199,9 @@ select { font: inherit; color: var(--ink); background: var(--surface); border: 1
 .libbody ul { list-style: none; margin: 0; padding: 0; }
 .libbody li { padding: 5px 0; border-top: 1px solid var(--line); }
 .libbody .st { color: var(--muted); } .libbody .tx { color: var(--muted); }
+.libbody h3.sect { font-size: 17px; color: var(--ink); border-bottom: 2px solid var(--line); padding-bottom: 2px; margin-top: 16px; }
+.libbody .dtheme { margin: 0 0 4px; color: var(--muted); }
+.indeck.foe { background: var(--foe-wash); color: var(--foe); }
 .indeck { font-style: normal; font-size: 10px; font-weight: 600; padding: 1px 6px; border-radius: 999px; background: var(--you-wash); color: var(--you); }
 @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
 </style>
@@ -210,20 +213,9 @@ select { font: inherit; color: var(--ink); background: var(--surface); border: 1
       <p class="sub">Two grids, one per side. Every card has a timer. First side to 100 points wins, and the enemy shows its plays before you answer.</p>
     </div>
     <div class="ctrls">
-      <label for="deck">Deck
-        <select id="deck">
-          <option value="mixed" selected>Random 12 of all 36</option>
-          <option value="keywords">Random 12 of the 24 new</option>
-          <option value="classic">Original 12</option>
-        </select>
-      </label>
-      <label for="diff">Enemy
-        <select id="diff">
-          <option value="-1">Easy (&minus;1 energy)</option>
-          <option value="0" selected>Normal</option>
-          <option value="1">Hard (+1 energy)</option>
-        </select>
-      </label>
+      <label for="deck-foe">Enemy Deck <select id="deck-foe"></select></label>
+      <label for="deck-you">Player Deck <select id="deck-you"></select></label>
+      <button class="btn ghost" id="randomize" type="button">Randomize</button>
       <label for="showfc"><input type="checkbox" id="showfc" checked> Forecast</label>
       <label for="fast"><input type="checkbox" id="fast"> Fast resolve</label>
       <button class="btn ghost" id="newgame" type="button">New game</button>
@@ -236,13 +228,13 @@ select { font: inherit; color: var(--ink); background: var(--surface); border: 1
     <div class="play">
       <div class="intent" id="intent" aria-live="polite"></div>
       <div class="grid foe">
-        <div class="gl"><b>Enemy grid</b><span>front row at the bottom, nearest you</span></div>
+        <div class="gl"><b id="gl-foe">Enemy grid</b><span>front row at the bottom, nearest you</span></div>
         <div class="board" id="board-foe" role="group" aria-label="Enemy grid"></div>
       </div>
       <div class="frontline">front line</div>
       <div class="grid you">
         <div class="board" id="board-you" role="group" aria-label="Your grid"></div>
-        <div class="gl"><b>Your grid</b><span>front row at the top. A1 is opposite A1.</span></div>
+        <div class="gl"><b id="gl-you">Your grid</b><span>front row at the top. A1 is opposite A1.</span></div>
       </div>
       <div class="legend" aria-label="Highlight legend">
         <span>Hover a cell, or an empty cell with a card selected:</span>
@@ -270,7 +262,7 @@ select { font: inherit; color: var(--ink); background: var(--surface); border: 1
           <li>Every card has a timer. At the end of each round all timers drop by 1. At 0 the effect fires, then the timer resets. Cards fire in the order they were placed.</li>
           <li>Attacks hit the opposite card, the opposite row or column, or the strongest card. Targets are picked fresh each tick, after the enemy's plays land and before any effect fires, so they never shift mid-tick. A card at 0 power is destroyed, and a destroyed card never fires.</li>
           <li>After effects, each side scores the total power on its own grid. First to 100 wins.</li>
-          <li>You can place a card on any cell of your grid. Placing on an occupied cell replaces that card, which goes to your discard. Both sides play the same deck each game.</li>
+          <li>You can place a card on any cell of your grid. Placing on an occupied cell replaces that card, which goes to your discard. Each side plays the deck chosen in its dropdown. Every deck is 12 different cards.</li>
           <li>Keywords are explained in the Keywords panel below and in the inspector.</li>
         </ol>
       </details>

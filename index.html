@@ -204,6 +204,9 @@ select { font: inherit; color: var(--ink); background: var(--surface); border: 1
 .libbody ul { list-style: none; margin: 0; padding: 0; }
 .libbody li { padding: 5px 0; border-top: 1px solid var(--line); }
 .libbody .st { color: var(--muted); } .libbody .tx { color: var(--muted); }
+.libbody h3.sect { font-size: 17px; color: var(--ink); border-bottom: 2px solid var(--line); padding-bottom: 2px; margin-top: 16px; }
+.libbody .dtheme { margin: 0 0 4px; color: var(--muted); }
+.indeck.foe { background: var(--foe-wash); color: var(--foe); }
 .indeck { font-style: normal; font-size: 10px; font-weight: 600; padding: 1px 6px; border-radius: 999px; background: var(--you-wash); color: var(--you); }
 @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
 </style>
@@ -217,20 +220,9 @@ select { font: inherit; color: var(--ink); background: var(--surface); border: 1
       <p class="sub">Two grids, one per side. Every card has a timer. First side to 100 points wins, and the enemy shows its plays before you answer.</p>
     </div>
     <div class="ctrls">
-      <label for="deck">Deck
-        <select id="deck">
-          <option value="mixed" selected>Random 12 of all 36</option>
-          <option value="keywords">Random 12 of the 24 new</option>
-          <option value="classic">Original 12</option>
-        </select>
-      </label>
-      <label for="diff">Enemy
-        <select id="diff">
-          <option value="-1">Easy (&minus;1 energy)</option>
-          <option value="0" selected>Normal</option>
-          <option value="1">Hard (+1 energy)</option>
-        </select>
-      </label>
+      <label for="deck-foe">Enemy Deck <select id="deck-foe"></select></label>
+      <label for="deck-you">Player Deck <select id="deck-you"></select></label>
+      <button class="btn ghost" id="randomize" type="button">Randomize</button>
       <label for="showfc"><input type="checkbox" id="showfc" checked> Forecast</label>
       <label for="fast"><input type="checkbox" id="fast"> Fast resolve</label>
       <button class="btn ghost" id="newgame" type="button">New game</button>
@@ -243,13 +235,13 @@ select { font: inherit; color: var(--ink); background: var(--surface); border: 1
     <div class="play">
       <div class="intent" id="intent" aria-live="polite"></div>
       <div class="grid foe">
-        <div class="gl"><b>Enemy grid</b><span>front row at the bottom, nearest you</span></div>
+        <div class="gl"><b id="gl-foe">Enemy grid</b><span>front row at the bottom, nearest you</span></div>
         <div class="board" id="board-foe" role="group" aria-label="Enemy grid"></div>
       </div>
       <div class="frontline">front line</div>
       <div class="grid you">
         <div class="board" id="board-you" role="group" aria-label="Your grid"></div>
-        <div class="gl"><b>Your grid</b><span>front row at the top. A1 is opposite A1.</span></div>
+        <div class="gl"><b id="gl-you">Your grid</b><span>front row at the top. A1 is opposite A1.</span></div>
       </div>
       <div class="legend" aria-label="Highlight legend">
         <span>Hover a cell, or an empty cell with a card selected:</span>
@@ -277,7 +269,7 @@ select { font: inherit; color: var(--ink); background: var(--surface); border: 1
           <li>Every card has a timer. At the end of each round all timers drop by 1. At 0 the effect fires, then the timer resets. Cards fire in the order they were placed.</li>
           <li>Attacks hit the opposite card, the opposite row or column, or the strongest card. Targets are picked fresh each tick, after the enemy's plays land and before any effect fires, so they never shift mid-tick. A card at 0 power is destroyed, and a destroyed card never fires.</li>
           <li>After effects, each side scores the total power on its own grid. First to 100 wins.</li>
-          <li>You can place a card on any cell of your grid. Placing on an occupied cell replaces that card, which goes to your discard. Both sides play the same deck each game.</li>
+          <li>You can place a card on any cell of your grid. Placing on an occupied cell replaces that card, which goes to your discard. Each side plays the deck chosen in its dropdown. Every deck is 12 different cards.</li>
           <li>Keywords are explained in the Keywords panel below and in the inspector.</li>
         </ol>
       </details>
@@ -375,6 +367,34 @@ const Core = (function () {
   ];
   const POOL = CLASSIC.concat(NEW);
   const HEROES = CLASSIC, VILLAINS = CLASSIC; // kept as aliases for older tools
+  const BY_ID = Object.fromEntries(POOL.map(d => [d.id, d]));
+
+  // ---------- decks ----------
+  // Every deck is exactly 12 DIFFERENT cards (the Starter deck has 12 distinct cards, so the same limit applies to all decks).
+  const DECK_SIZE_RULE = 12;
+  /*THEMED_DECKS_BEGIN*/
+  const THEMED = [
+    { id: "fortress", name: "Iron Bastion", theme: "Shielded blockers and Aegis Priest keep a growing board alive while Stoneguard, Troll and Warlord grind out points, but it is slow to start and has little burst or removal.",
+      cards: ['fledgling', 'duelist', 'bulwark', 'herald', 'marksman', 'aegis', 'treasurer', 'drillmaster', 'hushpriest', 'stoneguard', 'warlord', 'troll'] },
+    { id: "silence", name: "Hushed Court", theme: "Silence and timer delays shut down the opponent's best cards while cheap engines tick up, but the low-power board scores slowly and loses to fast aggro.",
+      cards: ['fledgling', 'duelist', 'gagwitch', 'frostcaller', 'marksman', 'herald', 'nullmage', 'hushpriest', 'treasurer', 'pikeman', 'warlord', 'troll'] },
+    { id: "assassin", name: "Knife Dance", theme: "Cheap Destroy effects and Lightning Bolt pick off the opponent's best cards with Chronomancer speeding the kills, but its own board scores low early and the long timers are slow.",
+      cards: ['fledgling', 'duelist', 'assassin', 'reaper', 'bolt', 'chronomancer', 'treasurer', 'pikeman', 'drillmaster', 'executioner', 'stoneguard', 'troll'] },
+    { id: "glass", name: "Glass Cannons", theme: "Fragile high-power Glass cards with buffs race for a fast lead, but any negative effect kills them and the deck has no Shield or Silence protection.",
+      cards: ['fledgling', 'rally', 'duelist', 'glasscannon', 'herald', 'seer', 'drillmaster', 'treasurer', 'pikeman', 'golem', 'warlord', 'troll'] },
+    { id: "feeding", name: "Feeding Frenzy", theme: "Cheap Edible bait is placed over by Consume cards that absorb its power and trigger its effect, but it needs the right placements and is weak if hands lack bait or fatties.",
+      cards: ['lamb', 'egg', 'mimic', 'ghoul', 'fledgling', 'herald', 'devourer', 'glutton', 'treasurer', 'drillmaster', 'warlord', 'troll'] },
+    { id: "haste", name: "Quickdraw", theme: "Haste cards fire the turn they land for tempo, scoring and chip damage, backed by Chronomancer and Stormcaller, but it has little late-game power and runs out of steam.",
+      cards: ['fledgling', 'duelist', 'smuggler', 'skirmisher', 'marksman', 'chronomancer', 'treasurer', 'drillmaster', 'pikeman', 'stormcaller', 'warlord', 'stoneguard'] },
+    { id: "spellstorm", name: "Spellstorm", theme: "Bolt, Rallying Cry and Plague Wind burst down threats and bolster the row, with solid bodies to score, but spells never score and Plague Wind costs 5, so the deck stumbles when it draws spells early.",
+      cards: ['bolt', 'rally', 'plague', 'fledgling', 'duelist', 'marksman', 'bulwark', 'treasurer', 'glutton', 'pikeman', 'stoneguard', 'troll'] },
+    { id: "swarm", name: "The Brood", theme: "Hatchlings, Sandlings and a wide board of small cards are buffed by Herald, Drillmaster and Warlord for rapid growth, but it is fragile to area damage like Pikeman and Plague Wind, and slow without setup.",
+      cards: ['fledgling', 'egg', 'bulwark', 'conjurer', 'herald', 'rally', 'drillmaster', 'chronomancer', 'treasurer', 'pikeman', 'warlord', 'troll'] },
+  ];
+  /*THEMED_DECKS_END*/
+  const DECKS = [{ id: 'starter', name: 'Starter', theme: 'The original 12 cards.', cards: CLASSIC.map(d => d.id) }].concat(THEMED);
+  const deckById = id => DECKS.find(d => d.id === id) || DECKS[0];
+  const deckDefs = id => deckById(id).cards.map(cid => BY_ID[cid]);
 
   function mulberry32(a) {
     return function () {
@@ -540,7 +560,7 @@ const Core = (function () {
 
   // mode: 'classic' = the original 12; 'mixed' = 12 random cards from all 36; 'keywords' = 12 random cards from the 24 keyword cards
   function makeDeck(mode, rnd) {
-    if (mode === 'classic') return CLASSIC.slice();
+    if (mode === 'classic' || mode === 'starter') return CLASSIC.slice();
     const src = mode === 'keywords' ? NEW : POOL;
     const G = { rnd };
     let pick = null;
@@ -559,11 +579,15 @@ const Core = (function () {
       side: {}, boards: { you: new Array(N).fill(null), foe: new Array(N).fill(null) },
       plan: [], undo: [], log: [], deckMode: opts.deckMode || 'classic',
     };
-    G.deckDefs = opts.deckDefs || makeDeck(G.deckMode, G.rnd);
+    G.deckIds = opts.deckIds || null;
+    G.deckDefs = opts.deckDefs || (G.deckIds ? deckDefs(G.deckIds.you) : makeDeck(G.deckMode, G.rnd));
+    if (G.deckIds && !opts.decks) opts = Object.assign({}, opts, { decks: { you: deckDefs(G.deckIds.you), foe: deckDefs(G.deckIds.foe) } });
+    G.deckByside = opts.decks || null;
     for (const side of ['you', 'foe']) {
       const S = { score: 0, energy: 0, deck: [], hand: [], discard: [] };
       G.side[side] = S;
       const defs = (opts.decks && opts.decks[side]) || G.deckDefs;
+      if (G.deckByside === null && opts.decks) G.deckByside = opts.decks;
       S.deck = shuffle(G, defs.map(d => makeCard(G, d, side)));
       for (let k = 0; k < START_HAND; k++) draw(G, side);
     }
@@ -1064,7 +1088,7 @@ const Core = (function () {
   const api = {
     COLS, ROWS, N, WIN, HAND_MAX, ENERGY_CAP, DECK_SIZE, CLASSIC, NEW, POOL, HEROES, VILLAINS, KW_LABEL, KW_HELP, KW_ORDER,
     mulberry32, other, cellName, rowOf, colOf, neighbors, rowCells, colCells, fxText: cardText, cardText, fxShort, keywordHelp, energyMax,
-    hasKw, kwOn, shieldOn, isEph, makeCard, makeDeck, newGame, startRound, aiPlan, cellValue, playCard, undoPlay, placeCard, resolveRound,
+    hasKw, kwOn, shieldOn, isEph, makeCard, makeDeck, DECKS, deckById, deckDefs, newGame, startRound, aiPlan, cellValue, playCard, undoPlay, placeCard, resolveRound,
     forecast, effectArea, influences, previewBoards,
   };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
@@ -1079,7 +1103,9 @@ const Core = (function () {
 
   // ---------- card art ----------
   // Art lives in art/<card id>.jpg; tokens use art/<token name>.jpg. Cards without art get a tinted placeholder with their initials.
-  const ART = new Set(Core.CLASSIC.map(d => d.id).concat('sandling'));
+  // Cards that still need art (delete an id from this list once art/<id>.jpg exists and is added to tools/make-art.ps1).
+  const NO_ART = new Set(['assassin', 'executioner', 'reaper']);
+  const ART = new Set(Core.POOL.map(d => d.id).filter(id => !NO_ART.has(id)).concat('sandling'));
   const artKey = c => (c.token ? c.name.toLowerCase() : c.def);
   const hasArt = c => ART.has(artKey(c));
   const hueOf = s => { let h = 7; for (const ch of String(s)) h = (h * 31 + ch.charCodeAt(0)) % 360; return h; };
@@ -1095,11 +1121,12 @@ const Core = (function () {
   const sleep = ms => new Promise(r => setTimeout(r, ms));
 
   let G = null;
-  const ui = { sel: null, inspect: null, flash: {}, busy: false, gain: null, fast: false, showFc: true, diff: 0, deck: 'mixed', tip: '', fc: null, hover: null, armed: null };
+  const ui = { sel: null, inspect: null, flash: {}, busy: false, gain: null, fast: false, showFc: true, deckYou: 'starter', deckFoe: 'starter', tip: '', fc: null, hover: null, armed: null };
 
   function start() {
-    G = Core.newGame(Math.random, { deckMode: ui.deck });
-    G.foeBonus = ui.diff;
+    G = Core.newGame(Math.random, { deckIds: { you: ui.deckYou, foe: ui.deckFoe } });
+    $('#gl-foe').textContent = 'Enemy grid \u00b7 ' + Core.deckById(ui.deckFoe).name;
+    $('#gl-you').textContent = 'Your grid \u00b7 ' + Core.deckById(ui.deckYou).name;
     Core.startRound(G);
     Object.assign(ui, { sel: null, inspect: null, flash: {}, busy: false, gain: null, tip: '', fc: null, hover: null, armed: null });
     renderLib();
@@ -1345,19 +1372,23 @@ const Core = (function () {
     $('#log').innerHTML = `<h2>Log</h2>${rows}`;
   }
 
-  // card library: this game's deck, then every card grouped by mechanic (new cards are numbered 1-24)
+  // card library: both decks in this game, then every card grouped by mechanic (new cards are numbered 1-24)
   function renderLib() {
-    const inDeck = new Set(G.deckDefs.map(d => d.id));
+    const mine = Core.deckById(ui.deckYou), theirs = Core.deckById(ui.deckFoe);
+    const inYou = new Set(mine.cards), inFoe = new Set(theirs.cards);
     const entry = d => {
       const stats = `${d.cost}c &middot; ${d.kw.indexOf('ephemeral') >= 0 ? 'spell' : d.power + 'p'}${d.timer ? ' &middot; T' + d.timer : ''}`;
-      return `<li><b>${d.num ? '#' + d.num + ' ' : ''}${esc(d.name)}</b>${inDeck.has(d.id) ? ' <i class="indeck">in this deck</i>' : ''} <span class="st">${stats}</span><br><span class="tx">${esc(Core.cardText(d))}</span></li>`;
+      const tags = (inYou.has(d.id) ? ' <i class="indeck">your deck</i>' : '') + (inFoe.has(d.id) ? ' <i class="indeck foe">enemy deck</i>' : '');
+      return `<li><b>${d.num ? '#' + d.num + ' ' : ''}${esc(d.name)}</b>${tags} <span class="st">${stats}</span><br><span class="tx">${esc(Core.cardText(d))}</span></li>`;
     };
-    const groups = [['Original 12', Core.CLASSIC], ['Shield', Core.NEW.slice(0, 3)], ['Ephemeral', Core.NEW.slice(3, 6)], ['Haste', Core.NEW.slice(6, 9)],
+    const deckList = (deck) => `<h3>${esc(deck.name)}</h3><p class="dtheme">${esc(deck.theme)}</p><ul>${deck.cards.map(id => entry(Core.POOL.find(d => d.id === id))).join('')}</ul>`;
+    const groups = [['Starter 12', Core.CLASSIC], ['Shield', Core.NEW.slice(0, 3)], ['Ephemeral', Core.NEW.slice(3, 6)], ['Haste', Core.NEW.slice(6, 9)],
       ['Destroy', Core.NEW.slice(9, 12)], ['Glass', Core.NEW.slice(12, 15)], ['Consume', Core.NEW.slice(15, 18)], ['Edible', Core.NEW.slice(18, 21)], ['Silence', Core.NEW.slice(21, 24)]];
     $('#kwlist').innerHTML = Object.values(Core.KW_HELP).map(t => '<li>' + esc(t) + '</li>').join('');
     $('#libbody').innerHTML =
-      `<h3>This game’s deck (both sides)</h3><ul>${G.deckDefs.map(entry).join('')}</ul>` +
-      groups.map(([name, list]) => `<h3>${name}</h3><ul>${list.map(entry).join('')}</ul>`).join('');
+      `<h3 class="sect">Your deck</h3>` + deckList(mine) +
+      (theirs.id === mine.id ? '' : `<h3 class="sect">Enemy deck</h3>` + deckList(theirs)) +
+      `<h3 class="sect">All cards</h3>` + groups.map(([name, list]) => `<h3>${name}</h3><ul>${list.map(entry).join('')}</ul>`).join('');
   }
 
   function renderControls() {
@@ -1474,8 +1505,22 @@ const Core = (function () {
   $('#end').addEventListener('click', endRound);
   $('#undo').addEventListener('click', () => { if (Core.undoPlay(G)) { ui.sel = null; ui.tip = ''; render(); } });
   $('#newgame').addEventListener('click', start);
-  $('#diff').addEventListener('change', e => { ui.diff = +e.target.value; start(); });
-  $('#deck').addEventListener('change', e => { ui.deck = e.target.value; start(); });
+  // deck pickers: Starter first, then the themed decks. Changing either one starts a new game.
+  const fillDecks = () => {
+    for (const [sel, key] of [['#deck-foe', 'deckFoe'], ['#deck-you', 'deckYou']]) {
+      $(sel).innerHTML = Core.DECKS.map(d => `<option value="${esc(d.id)}" title="${esc(d.theme)}">${esc(d.name)}</option>`).join('');
+      $(sel).value = ui[key];
+    }
+  };
+  fillDecks();
+  $('#deck-foe').addEventListener('change', e => { ui.deckFoe = e.target.value; start(); });
+  $('#deck-you').addEventListener('change', e => { ui.deckYou = e.target.value; start(); });
+  $('#randomize').addEventListener('click', () => {
+    const pick = () => Core.DECKS[Math.floor(Math.random() * Core.DECKS.length)].id;
+    ui.deckYou = pick(); ui.deckFoe = pick();
+    fillDecks();
+    start();
+  });
   $('#fast').addEventListener('change', e => { ui.fast = e.target.checked; });
   $('#showfc').addEventListener('change', e => { ui.showFc = e.target.checked; render(); });
 

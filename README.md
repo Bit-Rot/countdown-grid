@@ -11,7 +11,8 @@ No accounts, installs or servers: it is one static page.
 - `src/template.html`: page markup and styles
 - `build.js`: combines the three into `index.html`
 - `tools/`: simulations and checks. `node tools/mechtest.js` (keyword rules), `node tools/fctest.js` (forecast matches real play), `node tools/locktest.js`, `node tools/marginal.js` (strength of each card against a plain vanilla card), `node tools/sim.js`
-- `art/`: card art, one 512px JPEG per card id (plus `sandling.jpg`, a crop used for the Sandling token)
+- Decks: `DECKS` in `src/core.js` holds the Starter deck plus the themed decks (12 different cards each). The two dropdowns and the Randomize button choose a deck per side. `node tools/decks.js` plays every deck against every other.
+- `art/`: card art, one 512px JPEG per card id (Assassin, Executioner and Reaper still need art; they use placeholders listed in `NO_ART` in `src/ui.js`; plus `sandling.jpg`, a crop used for the Sandling token)
 - `tools/make-art.ps1`: regenerates `art/` from the 1024px source PNGs (`powershell -File tools/make-art.ps1 -SourceDir "<folder>"`)
 - `index.html`: the built page, served by GitHub Pages
 

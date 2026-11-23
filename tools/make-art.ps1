@@ -23,6 +23,30 @@ $map = [ordered]@{
   'Chronomancer'  = 'chronomancer'
   'Warlord'       = 'warlord'
   'Troll'         = 'troll'
+  'Bulwark'          = 'bulwark'
+  'Aegis Priest'     = 'aegis'
+  'Stoneguard'       = 'stoneguard'
+  'Lightning Bolt'   = 'bolt'
+  'Rallying Cry'     = 'rally'
+  'Plague Wind'      = 'plague'
+  'Skirmisher'       = 'skirmisher'
+  'Smuggler'         = 'smuggler'
+  'Stormcaller'      = 'stormcaller'
+  'Assassin'         = 'assassin'
+  'Executioner'      = 'executioner'
+  'Reaper'           = 'reaper'
+  'Glass Cannon'     = 'glasscannon'
+  'Crystal Golem'    = 'golem'
+  'Prism Seer'       = 'seer'
+  'Ghoul'            = 'ghoul'
+  'Devourer'         = 'devourer'
+  'Ogre Glutton'     = 'glutton'
+  'Sacrificial Lamb' = 'lamb'
+  'Treasure Mimic'   = 'mimic'
+  'Brood Egg'        = 'egg'
+  'Gag Witch'        = 'gagwitch'
+  'Null Mage'        = 'nullmage'
+  'Hush Priest'      = 'hushpriest'
 }
 # The Sandling token has no art of its own: use a square crop (x, y, size on the 1024px source) of the Sand Conjurer's sand swirl.
 $sandlingCrop = @{ Source = 'Sand Conjurer'; X = 30; Y = 430; Side = 480 }
@@ -45,6 +69,7 @@ function Save-Resized($srcPath, $outPath, $srcRect) {
 
 foreach ($name in $map.Keys) {
   $in = Join-Path $SourceDir "$name.png"
+  if (-not (Test-Path -LiteralPath $in)) { Write-Host ('{0,-14} -> (no source image, skipped)' -f $name); continue }
   $out = Join-Path $OutDir "$($map[$name]).jpg"
   Save-Resized $in $out @{ X = 0; Y = 0; W = 1024; H = 1024 }
   Write-Host ("{0,-14} -> {1} ({2} KB)" -f $name, (Split-Path $out -Leaf), [math]::Round((Get-Item $out).Length / 1KB))
