@@ -11,6 +11,8 @@ No accounts, installs or servers: it is one static page.
 - `src/template.html`: page markup and styles
 - `build.js`: combines the three into `index.html`
 - `tools/`: simulations and checks (`node tools/sim.js`, `node tools/fctest.js`, ...)
+- `art/`: card art, one 512px JPEG per card id (plus `sandling.jpg`, a crop used for the Sandling token)
+- `tools/make-art.ps1`: regenerates `art/` from the 1024px source PNGs (`powershell -File tools/make-art.ps1 -SourceDir "<folder>"`)
 - `index.html`: the built page, served by GitHub Pages
 
 ## Making a change

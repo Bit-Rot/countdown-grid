@@ -3,6 +3,10 @@
   const $ = s => document.querySelector(s);
   const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
   const cn = Core.cellName;
+  // Card art lives in art/<card id>.jpg. Tokens use art/<token name>.jpg (the Sandling).
+  const artUrl = c => 'art/' + (c.token ? c.name.toLowerCase() : c.def) + '.jpg';
+  const artStyle = c => `style="background-image:url('${artUrl(c)}')"`;
+  if (typeof Image !== 'undefined') for (const id of Core.HEROES.map(d => d.id).concat('sandling')) new Image().src = 'art/' + id + '.jpg';
   const DELAY = { place: 650, tick: 500, fire: 800, fizzle: 650, score: 1100 };
   const sleep = ms => new Promise(r => setTimeout(r, ms));
 
@@ -106,7 +110,7 @@
       const soon = c.timer != null && (f ? f.fires : c.timer === 1);
       const t = c.timer == null ? '' : `<span class="tm${soon ? ' soon' : ''}" title="Fires at the end of round ${G.round + c.timer - 1}">${c.timer}</span>`;
       return `<button class="cell card ${side} ${flc}" type="button" ${attrs} aria-label="${esc(c.name)}, power ${c.power}, ${side === 'you' ? 'yours' : 'enemy'}, ${cn(i)}">
-        <span class="nm">${esc(c.name)}</span>${t}<span class="fx">${esc(Core.fxShort(c))}</span>
+        <span class="art" ${artStyle(c)}></span><span class="nm">${esc(c.name)}</span>${t}<span class="fx">${esc(Core.fxShort(c))}</span>
         <span class="bot"><span class="pw">${c.power}</span><span class="rt">${badge(f)}</span></span>${pop}</button>`;
     }
     const gh = side === 'foe' ? ghostAt(i) : null;
@@ -115,7 +119,7 @@
       const f = fc && fc.byUid[gh.card.uid];
       const soon = f ? f.fires : gh.card.timerBase === 1;
       return `<button class="cell ghost ${flc}" type="button" ${attrs} aria-label="Enemy intends to play ${esc(gh.card.name)} at ${cn(i)}">
-        <span class="nm">${esc(gh.card.name)}</span><span class="tm${soon ? ' soon' : ''}" title="Timer">${gh.card.timerBase}</span><span class="fx">${esc(Core.fxShort(gh.card))}</span>
+        <span class="art" ${artStyle(gh.card)}></span><span class="nm">${esc(gh.card.name)}</span><span class="tm${soon ? ' soon' : ''}" title="Timer">${gh.card.timerBase}</span><span class="fx">${esc(Core.fxShort(gh.card))}</span>
         <span class="bot"><span class="pw">${gh.card.power}</span><span class="rt"><span class="next">NEXT ${k}</span>${badge(f)}</span></span>${pop}</button>`;
     }
     const sp = fc && fc.spawn.find(s => s.side === side && s.cell === i);
@@ -150,9 +154,10 @@
     $('#hand').innerHTML = Y.hand.map(c => {
       const poor = c.cost > Y.energy;
       return `<button class="hcard${ui.sel === c.uid ? ' sel' : ''}${poor ? ' poor' : ''}" type="button" data-hand="${c.uid}" aria-pressed="${ui.sel === c.uid}">
-        <span class="hhead"><span class="cost" title="Energy cost">${c.cost}</span><span class="hn">${esc(c.name)}</span></span>
+        <span class="hart" ${artStyle(c)}><span class="cost" title="Energy cost">${c.cost}</span></span>
+        <span class="hbody"><span class="hn">${esc(c.name)}</span>
         <span class="hmeta"><span class="pw">${c.power}</span><span class="tm" title="Timer (ticks between effects)">${c.timerBase}</span></span>
-        <span class="hfx">${esc(Core.fxText(c))}</span></button>`;
+        <span class="hfx">${esc(Core.fxText(c))}</span></span></button>`;
     }).join('');
   }
 
@@ -202,7 +207,8 @@
       if (f.fires) bits.push('fires');
       fcast = `<p class="fcast">Forecast: ${bits.join(', ')}.</p>`;
     }
-    el.innerHTML = `<div class="ih"><span class="tag ${owner}">${owner === 'you' ? 'You' : 'Enemy'}</span><h2>${esc(c.name)}</h2></div>
+    el.innerHTML = `<div class="iart ${owner}" ${artStyle(c)} role="img" aria-label="Art for ${esc(c.name)}"></div>
+      <div class="ih"><span class="tag ${owner}">${owner === 'you' ? 'You' : 'Enemy'}</span><h2>${esc(c.name)}</h2></div>
       <div class="stats"><div><small>Cost</small><b>${c.cost}</b></div><div><small>Power</small><b>${c.power}</b></div><div><small>Timer</small><b>${timer}</b></div></div>
       <p>${esc(Core.fxText(c))}</p><p class="note">${esc(when)}</p>${fcast}${note}`;
   }
