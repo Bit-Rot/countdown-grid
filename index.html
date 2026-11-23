@@ -334,7 +334,7 @@ const Core = (function () {
   const NEW = [
     // Shield
     D(1, 'bulwark', 'Bulwark', 2, 2, 3, { t: 'buffAdj', n: 1 }, ['shield']),
-    D(2, 'aegis', 'Aegis Priest', 3, 4, 2, { t: 'shieldAdj' }),
+    D(2, 'aegis', 'Aegis Priest', 3, 4, 3, { t: 'shieldAdj' }),
     D(3, 'stoneguard', 'Stoneguard', 4, 4, 3, { t: 'hitOpposite', n: 2 }, ['shield']),
     // Ephemeral (spells: they resolve when placed, then vanish)
     D(4, 'bolt', 'Lightning Bolt', 2, 0, null, { t: 'hitOpposite', n: 3 }, ['ephemeral']),
@@ -342,27 +342,27 @@ const Core = (function () {
     D(6, 'plague', 'Plague Wind', 5, 0, null, { t: 'hitAll', n: 1 }, ['ephemeral']),
     // Haste
     D(7, 'skirmisher', 'Skirmisher', 2, 1, 4, { t: 'hitOpposite', n: 2 }, ['haste']),
-    D(8, 'smuggler', 'Smuggler', 2, 2, 3, { t: 'score', n: 5 }, ['haste']),
-    D(9, 'stormcaller', 'Stormcaller', 5, 3, 4, { t: 'hitRow', n: 1 }, ['haste']),
+    D(8, 'smuggler', 'Smuggler', 2, 2, 3, { t: 'score', n: 4 }, ['haste']),
+    D(9, 'stormcaller', 'Stormcaller', 5, 3, 5, { t: 'hitRow', n: 1 }, ['haste']),
     // Destroy
-    D(10, 'assassin', 'Assassin', 2, 3, 4, { t: 'destroyOpposite' }),
-    D(11, 'executioner', 'Executioner', 4, 4, 3, { t: 'destroyTop' }),
+    D(10, 'assassin', 'Assassin', 2, 3, 5, { t: 'destroyOpposite' }),
+    D(11, 'executioner', 'Executioner', 4, 4, 4, { t: 'destroyTop' }),
     D(12, 'reaper', 'Reaper', 2, 3, 5, { t: 'destroyWeakest' }),
     // Glass
     D(13, 'glasscannon', 'Glass Cannon', 2, 4, 3, { t: 'hitOpposite', n: 1 }, ['glass']),
-    D(14, 'golem', 'Crystal Golem', 4, 6, null, null, ['glass']),
-    D(15, 'seer', 'Prism Seer', 3, 3, 2, { t: 'buffSelf', n: 2 }, ['glass']),
+    D(14, 'golem', 'Crystal Golem', 4, 7, null, null, ['glass']),
+    D(15, 'seer', 'Prism Seer', 3, 4, 2, { t: 'buffSelf', n: 2 }, ['glass']),
     // Consume
     D(16, 'ghoul', 'Ghoul', 2, 3, 3, { t: 'buffSelf', n: 1 }, ['consume']),
     D(17, 'devourer', 'Devourer', 3, 3, 3, { t: 'hitOpposite', n: 2 }, ['consume']),
     D(18, 'glutton', 'Ogre Glutton', 3, 4, null, null, ['consume']),
     // Edible
-    D(19, 'lamb', 'Sacrificial Lamb', 1, 1, 3, { t: 'buffAdj', n: 2 }, ['edible']),
+    D(19, 'lamb', 'Sacrificial Lamb', 1, 1, 4, { t: 'buffAdj', n: 2 }, ['edible']),
     D(20, 'mimic', 'Treasure Mimic', 2, 3, 3, { t: 'score', n: 5 }, ['edible']),
-    D(21, 'egg', 'Brood Egg', 1, 1, 3, { t: 'spawn', token: 'Hatchling', tokenPower: 3 }, ['edible']),
+    D(21, 'egg', 'Brood Egg', 1, 1, 4, { t: 'spawn', token: 'Hatchling', tokenPower: 3 }, ['edible']),
     // Silence
     D(22, 'gagwitch', 'Gag Witch', 2, 3, 3, { t: 'silenceOpposite', n: 2 }),
-    D(23, 'nullmage', 'Null Mage', 3, 3, 3, { t: 'silenceTop', n: 3 }),
+    D(23, 'nullmage', 'Null Mage', 3, 3, 2, { t: 'silenceTop', n: 3 }),
     D(24, 'hushpriest', 'Hush Priest', 3, 3, 3, { t: 'silenceRow', n: 2 }),
   ];
   const POOL = CLASSIC.concat(NEW);
@@ -375,17 +375,17 @@ const Core = (function () {
   /*THEMED_DECKS_BEGIN*/
   const THEMED = [
     { id: "fortress", name: "Iron Bastion", theme: "Shielded blockers and Aegis Priest keep a growing board alive while Stoneguard, Troll and Warlord grind out points, but it is slow to start and has little burst or removal.",
-      cards: ['fledgling', 'duelist', 'bulwark', 'herald', 'marksman', 'aegis', 'treasurer', 'drillmaster', 'hushpriest', 'stoneguard', 'warlord', 'troll'] },
+      cards: ['fledgling', 'duelist', 'bulwark', 'herald', 'marksman', 'aegis', 'conjurer', 'drillmaster', 'hushpriest', 'stoneguard', 'warlord', 'troll'] },
     { id: "silence", name: "Hushed Court", theme: "Silence and timer delays shut down the opponent's best cards while cheap engines tick up, but the low-power board scores slowly and loses to fast aggro.",
-      cards: ['fledgling', 'duelist', 'gagwitch', 'frostcaller', 'marksman', 'herald', 'nullmage', 'hushpriest', 'treasurer', 'pikeman', 'warlord', 'troll'] },
+      cards: ['fledgling', 'duelist', 'gagwitch', 'frostcaller', 'marksman', 'herald', 'nullmage', 'hushpriest', 'warlord', 'pikeman', 'drillmaster', 'troll'] },
     { id: "assassin", name: "Knife Dance", theme: "Cheap Destroy effects and Lightning Bolt pick off the opponent's best cards with Chronomancer speeding the kills, but its own board scores low early and the long timers are slow.",
-      cards: ['fledgling', 'duelist', 'assassin', 'reaper', 'bolt', 'chronomancer', 'treasurer', 'pikeman', 'drillmaster', 'executioner', 'stoneguard', 'troll'] },
-    { id: "glass", name: "Glass Cannons", theme: "Fragile high-power Glass cards with buffs race for a fast lead, but any negative effect kills them and the deck has no Shield or Silence protection.",
-      cards: ['fledgling', 'rally', 'duelist', 'glasscannon', 'herald', 'seer', 'drillmaster', 'treasurer', 'pikeman', 'golem', 'warlord', 'troll'] },
+      cards: ['fledgling', 'duelist', 'assassin', 'reaper', 'bolt', 'chronomancer', 'frostcaller', 'pikeman', 'drillmaster', 'executioner', 'stoneguard', 'troll'] },
+    { id: "glass", name: "Glass Cannons", theme: "Fragile high-power Glass cards, with Aegis Priest handing out Shields, race for a fast lead, but any negative effect that gets through kills them and the deck has little removal of its own.",
+      cards: ['fledgling', 'aegis', 'duelist', 'glasscannon', 'herald', 'seer', 'drillmaster', 'chronomancer', 'pikeman', 'golem', 'warlord', 'troll'] },
     { id: "feeding", name: "Feeding Frenzy", theme: "Cheap Edible bait is placed over by Consume cards that absorb its power and trigger its effect, but it needs the right placements and is weak if hands lack bait or fatties.",
       cards: ['lamb', 'egg', 'mimic', 'ghoul', 'fledgling', 'herald', 'devourer', 'glutton', 'treasurer', 'drillmaster', 'warlord', 'troll'] },
     { id: "haste", name: "Quickdraw", theme: "Haste cards fire the turn they land for tempo, scoring and chip damage, backed by Chronomancer and Stormcaller, but it has little late-game power and runs out of steam.",
-      cards: ['fledgling', 'duelist', 'smuggler', 'skirmisher', 'marksman', 'chronomancer', 'treasurer', 'drillmaster', 'pikeman', 'stormcaller', 'warlord', 'stoneguard'] },
+      cards: ['fledgling', 'duelist', 'smuggler', 'skirmisher', 'marksman', 'herald', 'chronomancer', 'warlord', 'drillmaster', 'pikeman', 'stormcaller', 'stoneguard'] },
     { id: "spellstorm", name: "Spellstorm", theme: "Bolt, Rallying Cry and Plague Wind burst down threats and bolster the row, with solid bodies to score, but spells never score and Plague Wind costs 5, so the deck stumbles when it draws spells early.",
       cards: ['bolt', 'rally', 'plague', 'fledgling', 'duelist', 'marksman', 'bulwark', 'treasurer', 'glutton', 'pikeman', 'stoneguard', 'troll'] },
     { id: "swarm", name: "The Brood", theme: "Hatchlings, Sandlings and a wide board of small cards are buffed by Herald, Drillmaster and Warlord for rapid growth, but it is fragile to area damage like Pikeman and Plague Wind, and slow without setup.",
