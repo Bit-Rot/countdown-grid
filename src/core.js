@@ -252,6 +252,7 @@ const Core = (function () {
   }
   function log(G, side, text) {
     G.log.push({ round: G.round, side, text });
+    G.logCount = (G.logCount || 0) + 1;
     if (G.log.length > 300) G.log.shift();
   }
   function draw(G, side) {

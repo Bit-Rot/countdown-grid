@@ -60,7 +60,14 @@
         if (placing && old && Core.hasKw(old, 'edible') && old.fx && !Core.isEph(placing)) {
           for (const a of Core.effectArea(G, h.side, h.i, old, G.boards)) out.add(a.side + ':' + a.cell);
         }
-        if (placing) label = Core.isEph(placing) ? 'cast here' : (old ? 'replace' : 'place here');
+        if (placing) {
+          label = Core.isEph(placing) ? 'cast here' : (old ? 'replace' : 'place here');
+          // a Haste or Ephemeral effect happens now, on the board as it is: warn when nothing is there to hit
+          if (immediate && placing.fx && !['buffSelf', 'score', 'spawn'].includes(placing.fx.t)) {
+            const any = [...out].some(k => { const p = k.split(':'); return G.boards[p[0]][+p[1]]; });
+            if (!any) label = (Core.isEph(placing) ? 'cast: ' : 'place: ') + 'no target';
+          }
+        }
       }
       inn = new Map();
       for (const x of Core.influences(G, h.side, h.i)) inn.set(x.side + ':' + x.cell, x.hostile ? 'threat' : 'boost');
@@ -339,8 +346,17 @@
         return;
       }
       ui.armed = null;
+      const logged = G.logCount || 0;
+      const planned = ghostAt(i);
       const r = Core.playCard(G, ui.sel, i);
       if (r) {
+        const lines = G.log.slice(-Math.max(0, (G.logCount || 0) - logged)).map(l => l.text);
+        const result = lines.filter(t => /target|nothing|blocks|destroyed|hits|silences|scores|shields|slows|drains|speeds|creates|consumes|eaten/.test(t)).slice(-3).join(' ');
+        let extra = '';
+        if (/nothing opposite|no target|nothing to drain/.test(result) && planned && G.side.foe.hand.includes(planned.card)) {
+          extra = ` The enemy's ${planned.card.name} lands at the end of the round, after this resolves.`;
+        }
+        ui.tip = (result + extra).trim();
         ui.sel = null;
         ui.flash = {};
         addFlash(ui.flash, r.marks);
